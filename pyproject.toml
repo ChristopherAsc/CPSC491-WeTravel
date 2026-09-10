@@ -1,0 +1,12 @@
+[project]
+name = "cpsc491-wetravel"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.141.1",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.5.1",
+]
