@@ -248,34 +248,54 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
 # =========================================================
 
 
-@router.get("/posts", response_model=list[PostResponse])
-def get_posts():
-    """
-    Retrieve travel posts for the Feed.
+@router.get("/users/me/posts", response_model=list[PostResponse])
+def get_my_posts(current_user: User = Depends(get_current_user)):
 
-    TODO:
-    - Connect PostgreSQL
-    - Add pagination
-    - Add destination/location filtering
-    """
+    return current_user.posts
 
-    return mock_posts
+@router.get("/users/{user_id}/posts", response_model=list[PostResponse])
+def get_user_posts(user_id: int, db: Session = Depends(get_db)):
+
+    user = db.get(User, user_id)
+    
+    if user is None:
+        raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User not found",
+    )
+    return user.posts
+    
 
 
-@router.get("/posts/{post_id}")
-def get_post(post_id: int):
+
+@router.get("/posts/{post_id}", response_model = PostResponse)
+def get_post(post_id: int,  db: Session = Depends(get_db)):
     """
     Retrieve one travel post.
     """
+    post = db.get(Post, post_id)
 
-    for post in mock_posts:
-        if post["post_id"] == post_id:
-            return post
-
-    raise HTTPException(
+    if post is None:
+        raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Post not found",
     )
+    return post
+
+@router.get("/posts", response_model=list[PostResponse])
+def get_posts(
+    db: Session = Depends(get_db)
+):
+    posts = db.scalars(
+        select(Post)
+        .order_by(Post.created_at.desc())
+        .limit(20)
+    ).all()
+
+    return posts
+        
+
+
 
 
 @router.post(
@@ -283,28 +303,32 @@ def get_post(post_id: int):
     response_model=PostResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_post(post: PostCreate):
+def create_post(new_post_data: PostCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Create a new travel post.
-
-    Currently returns mock data.
-
     TODO:
     - Get user_id from authenticated user
-    - Upload media through Cloudinary
     - Store post using SQLAlchemy
     """
+    new_post = Post(
+        user_id = current_user.user_id,
+        caption = new_post_data.caption,
+        media_url = new_post_data.media_url,
+        location = new_post_data.location
+    )
 
-    new_post = {
-        "post_id": len(mock_posts) + 1,
-        "user_id": 1,
-        "caption": post.caption,
-        "media_url": post.media_url,
-        "location": post.location.model_dump(),
-        "created_at": datetime.now(timezone.utc),
-    }
+    try:
+        db.add(new_post)
+        db.commit()
+        db.refresh(new_post)
 
-    mock_posts.append(new_post)
+    except Exception:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create post",
+        )
 
     return new_post
 
@@ -313,24 +337,47 @@ def create_post(post: PostCreate):
     "/posts/{post_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_post(post_id: int):
+def delete_post(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
-    Delete a post.
+    Delete a travel post.
 
-    TODO:
-    - Require authentication
-    - Verify that current user owns the post
+    Only the user who created the post may delete it.
     """
 
-    for index, post in enumerate(mock_posts):
-        if post["post_id"] == post_id:
-            mock_posts.pop(index)
-            return
+    # Retrieve post by primary key
+    post = db.get(Post, post_id)
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Post not found",
-    )
+    # Post does not exist
+    if post is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+
+    # Logged-in user does not own the post
+    if post.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete this post",
+        )
+
+    try:
+        db.delete(post)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to delete post",
+        )
+
+    return
 
 
 # =========================================================
@@ -338,36 +385,42 @@ def delete_post(post_id: int):
 # =========================================================
 
 
-@router.get("/locations/{location_id}")
-def get_location(location_id: int):
-    """
-    Retrieve information about a location.
+@router.get(
+    "/locations/{location_id}",
+    response_model=LocationResponse
+)
+def get_location(
+    location_id: int,
+    db: Session = Depends(get_db)
+):
+    location = db.get(Location, location_id)
 
-    TODO:
-    - Replace with PostGIS-backed location query
-    """
+    if location is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found",
+        )
 
-    return {
-        "location_id": location_id,
-        "name": "Example Location",
-        "latitude": 0.0,
-        "longitude": 0.0,
-    }
+    return location
 
 
-@router.get("/locations/{location_id}/posts")
-def get_posts_by_location(location_id: int):
-    """
-    Retrieve posts associated with a location.
+@router.get(
+    "/locations/{location_id}/posts",
+    response_model=list[PostResponse]
+)
+def get_posts_by_location(
+    location_id: int,
+    db: Session = Depends(get_db)
+):
+    location = db.get(Location, location_id)
 
-    TODO:
-    - Implement using PostgreSQL/PostGIS
-    """
+    if location is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found",
+        )
 
-    return {
-        "location_id": location_id,
-        "posts": [],
-    }
+    return location.posts
 
 
 # =========================================================
@@ -375,46 +428,73 @@ def get_posts_by_location(location_id: int):
 # =========================================================
 
 
-@router.get("/itineraries")
-def get_itineraries():
+@router.get(
+    "/itineraries",
+    response_model=list[ItineraryResponse]
+)
+def get_itineraries(
+    current_user: User = Depends(get_current_user)
+):
     """
     Retrieve itineraries belonging to the current user.
-
-    TODO:
-    - Require authentication
-    - Query by current user ID
     """
 
-    return []
-
+    return current_user.itineraries
 
 @router.post(
     "/itineraries",
+    response_model=ItineraryResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_itinerary(itinerary: ItineraryCreate):
-    """
-    Create a new itinerary.
-    """
+def create_itinerary(
+    itinerary_data: ItineraryCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    new_itinerary = Itinerary(
+        user_id=current_user.user_id,
+        name=itinerary_data.name,
+    )
 
-    return {
-        "itinerary_id": 1,
-        "name": itinerary.name,
-        "destinations": [],
-    }
+    try:
+        db.add(new_itinerary)
+        db.commit()
+        db.refresh(new_itinerary)
 
+    except Exception:
+        db.rollback()
 
-@router.get("/itineraries/{itinerary_id}")
-def get_itinerary(itinerary_id: int):
-    """
-    Retrieve one itinerary.
-    """
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create itinerary",
+        )
 
-    return {
-        "itinerary_id": itinerary_id,
-        "name": "Example Trip",
-        "destinations": [],
-    }
+    return new_itinerary
+
+@router.get(
+    "/itineraries/{itinerary_id}",
+    response_model=ItineraryResponse
+)
+def get_itinerary(
+    itinerary_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    itinerary = db.get(Itinerary, itinerary_id)
+
+    if itinerary is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Itinerary not found",
+        )
+
+    if itinerary.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to view this itinerary",
+        )
+
+    return itinerary
 
 
 # =========================================================
@@ -426,10 +506,6 @@ def get_itinerary(itinerary_id: int):
 def get_safety_reports():
     """
     Retrieve safety reports.
-
-    TODO:
-    - Add geographic filtering
-    - Add PostGIS radius queries
     """
 
     return []
@@ -437,22 +513,32 @@ def get_safety_reports():
 
 @router.post(
     "/safety-reports",
+    response_model=SafetyReportResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_safety_report(report: SafetyReportCreate):
-    """
-    Submit a new safety report.
+def create_safety_report(
+    report_data: SafetyReportCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    new_report = SafetyReport(
+        user_id=current_user.user_id,
+        report_type=report_data.report_type,
+        location=report_data.location,
+        description=report_data.description,
+    )
 
-    TODO:
-    - Require authentication
-    - Persist to database
-    - Add validation/verification logic
-    """
+    try:
+        db.add(new_report)
+        db.commit()
+        db.refresh(new_report)
 
-    return {
-        "report_id": 1,
-        "report_type": report.report_type,
-        "location": report.location,
-        "description": report.description,
-        "created_at": datetime.now(timezone.utc),
-    }
+    except Exception:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create safety report",
+        )
+
+    return new_report
