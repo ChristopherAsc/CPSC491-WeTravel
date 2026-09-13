@@ -1,12 +1,17 @@
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 # from pydantic import BaseModel, Field, EmailStr
 from pwdlib import PasswordHash
 from fastapi.security import OAuth2PasswordBearer
 
+from database import get_db
+from models import User
 from pydantic_models import (
     Location,
     PostResponse,
@@ -17,6 +22,7 @@ from pydantic_models import (
     ItineraryCreate,
     SafetyReportCreate,
     LoginRequest,
+    TokenResponse,
 )
 
 # ---------------------------------------------------------
@@ -26,12 +32,20 @@ from pydantic_models import (
 router = APIRouter()
 # ----------------------------------------------------------
 
-SECRET_KEY = "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+SECRET_KEY = os.environ["JWT_SECRET"]
+ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
 password_hash = PasswordHash.recommended()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+
+def hash_password(plain_password: str) -> str:
+    return password_hash.hash(plain_password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return password_hash.verify(plain_password, hashed_password)
 
 
 def create_access_token(user_id: int, username: str) -> str:
@@ -108,7 +122,7 @@ mock_posts = [
 
 
 @router.post("/auth/register", status_code=status.HTTP_201_CREATED)
-def register(new_user_data=UserRegistration, db: Session = Depends(get_db)):
+def register(new_user_data: UserRegistration, db: Session = Depends(get_db)):
     """
 
     Register a new user. (Instantiate database class object of User WITH a HASHED PASSWORD)
@@ -166,8 +180,8 @@ def register(new_user_data=UserRegistration, db: Session = Depends(get_db)):
     return {"message": "User registered successfully", "user_id": new_user.user_id}
 
 
-@router.post("/auth/login", response_model=UserResponse)
-def login(login_credentials=LoginRequest, db: Session = Depends(get_db)):
+@router.post("/auth/login", response_model=TokenResponse)
+def login(login_credentials: LoginRequest, db: Session = Depends(get_db)):
     """
     Authenticate a user.
 
@@ -179,7 +193,7 @@ def login(login_credentials=LoginRequest, db: Session = Depends(get_db)):
     5. Generate JWT to send back to client that allows subsequent identifaction of current user in database
     """
     # Find user by username
-    statement = select(User).where(User.username == credentials.username)
+    statement = select(User).where(User.username == login_credentials.username)
 
     user = db.scalar(statement)
 
@@ -193,7 +207,7 @@ def login(login_credentials=LoginRequest, db: Session = Depends(get_db)):
         )
 
     # Check Case where Password is incorrect
-    if not verify_password(credentials.password, user.hashed_password):
+    if not verify_password(login_credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
@@ -212,7 +226,7 @@ def login(login_credentials=LoginRequest, db: Session = Depends(get_db)):
 # User / Profile Routes
 # used to instantiate a user profile
 # =========================================================
-@router.get("/users/me")
+@router.get("/users/me", response_model=UserResponse)
 def get_my_profile(current_user: User = Depends(get_current_user)):
     return current_user
 
@@ -234,8 +248,8 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
 # =========================================================
 
 
-@router.get("/posts", response_model=PostResponse)
-def get_posts(post_request=PostRequest):
+@router.get("/posts", response_model=list[PostResponse])
+def get_posts():
     """
     Retrieve travel posts for the Feed.
 
