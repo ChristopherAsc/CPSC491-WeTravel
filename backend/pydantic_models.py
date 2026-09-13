@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 
@@ -35,12 +35,14 @@ class SafetyReportCreate(BaseModel):
 
 
 class UserRegistration(BaseModel):
-    email = EmailStr
-    username = str
-    password = str = Field(min_length=6)
+    email: EmailStr
+    username: str
+    password: str = Field(min_length=6)
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     username: str
     email: str
@@ -48,11 +50,18 @@ class UserResponse(BaseModel):
 
 
 class PublicUserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     username: str
     posts: list[PostResponse] = []
 
 
 class LoginRequest(BaseModel):
-    entered_username: str
-    entered_password: str
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

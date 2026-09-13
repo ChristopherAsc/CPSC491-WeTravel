@@ -39,6 +39,7 @@ MANIFEST
 .env
 .env.local
 .env.*.local
+.venv
 
 # IDE
 .vscode/settings.json
