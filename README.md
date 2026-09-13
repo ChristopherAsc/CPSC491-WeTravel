@@ -1,50 +1,68 @@
 # WeTravel
 
-WeTravel is a web application that combines social travel discovery, interactive maps, trip planning, and community-driven safety information into one platform.
+WeTravel is a travel-focused social platform designed to combine travel discovery, social content, maps, and trip planning into one application.
+
+The goal of WeTravel is to make it easier for users to discover destinations, view travel experiences shared by other users, explore locations on an interactive map, and organize destinations into itineraries.
+
+## Current Development
+
+This branch contains the initial frontend shell for the WeTravel application.
+
+### Completed
+
+- React + TypeScript + Vite project setup
+- Tailwind CSS configuration
+- shadcn/ui configuration
+- React Router setup
+- Global application layout
+- Responsive navigation
+- Initial application routes
+- Reusable layout components
 
 ## Tech Stack
 
-### Frontend
 - React
 - TypeScript
 - Vite
 - Tailwind CSS
 - shadcn/ui
-- TanStack Query
 - React Router
+- Lucide React Icons
 
-### Backend
-- Python
-- FastAPI
-- SQLAlchemy 2.0
-- Pydantic
+## Current Routes
 
-### Database
-- PostgreSQL
-- PostGIS
-
-### Services
-- Mapbox GL JS
-- Cloudinary
-
-### Testing
-- Vitest + React Testing Library
-- pytest
-- Postman / Bruno
-
-### DevOps
-- GitHub
-- GitHub Actions
-- Vercel
-- Render
+| Route | Page |
+| --- | --- |
+| `/` | Home |
+| `/login` | Login |
+| `/register` | Register |
+| `/feed` | Travel Feed |
+| `/map` | Map |
+| `/create-post` | Create Post |
+| `/itinerary` | Itinerary |
+| `/profile` | Profile |
 
 ## Project Structure
 
 ```text
-wetravel/
-├── frontend/
-├── backend/
-├── README.md
-├── .gitignore
-└── .env.example
-```
+src/
+├── assets/
+├── components/
+│   ├── layout/
+│   │   ├── MainContent.tsx
+│   │   ├── Navbar.tsx
+│   │   └── PageContainer.tsx
+│   └── ui/
+├── lib/
+├── pages/
+│   ├── CreatePost.tsx
+│   ├── Feed.tsx
+│   ├── Home.tsx
+│   ├── Itinerary.tsx
+│   ├── Login.tsx
+│   ├── Map.tsx
+│   ├── Profile.tsx
+│   └── Register.tsx
+├── App.tsx
+├── index.css
+└── main.tsx
