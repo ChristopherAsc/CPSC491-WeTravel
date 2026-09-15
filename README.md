@@ -1,6 +1,8 @@
 # WeTravel
 
-A collaborative travel planning and safety-sharing web application.
+A collaborative travel planning and safety-sharing web application. WeTravel is a travel-focused social platform designed to combine travel discovery, social content, maps, and trip planning into one application.
+
+The goal of WeTravel is to make it easier for users to discover destinations, view travel experiences shared by other users, explore locations on an interactive map, and organize destinations into itineraries.
 
 **Repository**: https://github.com/ChristopherAsc/CPSC491-WeTravel
 
@@ -27,6 +29,7 @@ A collaborative travel planning and safety-sharing web application.
 - React Router for routing
 - React Hook Form + Zod for forms
 - Mapbox GL JS for maps
+- Lucide React Icons
 - Vitest + React Testing Library for testing
 
 ### Backend
@@ -46,6 +49,62 @@ A collaborative travel planning and safety-sharing web application.
 - Supabase / Neon for managed PostgreSQL
 - Cloudinary for image hosting
 - Mapbox for map APIs
+
+---
+
+## Current Development
+
+This branch contains the initial frontend shell for the WeTravel application.
+
+### Completed
+
+- React + TypeScript + Vite project setup
+- Tailwind CSS configuration
+- shadcn/ui configuration
+- React Router setup
+- Global application layout
+- Responsive navigation
+- Initial application routes
+- Reusable layout components
+
+### Current Routes
+
+| Route | Page |
+| --- | --- |
+| `/` | Home |
+| `/login` | Login |
+| `/register` | Register |
+| `/feed` | Travel Feed |
+| `/map` | Map |
+| `/create-post` | Create Post |
+| `/itinerary` | Itinerary |
+| `/profile` | Profile |
+
+### Frontend Project Structure
+
+```text
+src/
+├── assets/
+├── components/
+│   ├── layout/
+│   │   ├── MainContent.tsx
+│   │   ├── Navbar.tsx
+│   │   └── PageContainer.tsx
+│   └── ui/
+├── lib/
+├── pages/
+│   ├── CreatePost.tsx
+│   ├── Feed.tsx
+│   ├── Home.tsx
+│   ├── Itinerary.tsx
+│   ├── Login.tsx
+│   ├── Map.tsx
+│   ├── Profile.tsx
+│   └── Register.tsx
+├── App.tsx
+├── index.css
+└── main.tsx
+```
 
 ---
 
@@ -81,5 +140,3 @@ TBD
 ## Database Setup
 
 TBD
-
----
