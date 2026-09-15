@@ -34,10 +34,6 @@ class PostResponse(BaseModel):
 
 class ItineraryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    description: Optional[str] = None
-    start_date: date
-    end_date: date
-    destinations: list[int] = Field(default_factory=list)
 
 class ItineraryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
