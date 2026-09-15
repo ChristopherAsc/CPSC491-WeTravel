@@ -38,9 +38,12 @@ class ItineraryCreate(BaseModel):
 class ItineraryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    itinerary_id: int
+      itinerary_id: int
     user_id: int
     name: str
+    description: Optional[str] = None
+    start_date: date
+    end_date: date
     destinations: list[LocationResponse] = Field(
         default_factory=list
     )
