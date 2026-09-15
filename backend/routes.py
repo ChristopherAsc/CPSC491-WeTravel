@@ -250,6 +250,10 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
 # =========================================================
 
 
+@router.get("/posts", response_model=list[PostResponse])
+def get_posts():
+    """
+    Retrieve travel posts for the Feed.
 @router.get("/users/me/posts", response_model=list[PostResponse])
 def get_my_posts(current_user: User = Depends(get_current_user)):
 

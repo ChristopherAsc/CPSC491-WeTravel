@@ -48,6 +48,7 @@ MANIFEST
 .env
 .env.local
 .env.*.local
+.venv
 
 # Editor / IDE
 .vscode/*
