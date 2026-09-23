@@ -1,18 +1,15 @@
-
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-# from pydantic import BaseModel, Field, EmailStr
-from pwdlib import PasswordHash
-from fastapi.security import OAuth2PasswordBearer
-
 from database import get_db
-from models import User
+from models import User, Post, Location, Itinerary, SafetyReport
 from pydantic_models import (
     LocationResponse,
     PostResponse,
@@ -33,7 +30,10 @@ from pydantic_models import (
 # ---------------------------------------------------------
 
 router = APIRouter()
-# ----------------------------------------------------------
+
+# ---------------------------------------------------------
+# Authentication Configuration
+# ---------------------------------------------------------
 
 SECRET_KEY = os.environ["JWT_SECRET"]
 ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
@@ -52,12 +52,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(user_id: int, username: str) -> str:
-
     expiration = datetime.now(timezone.utc) + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    payload = {"sub": str(user_id), "username": username, "exp": expiration}
+    payload = {
+        "sub": str(user_id),
+        "username": username,
+        "exp": expiration,
+    }
 
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -65,10 +68,15 @@ def create_access_token(user_id: int, username: str) -> str:
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
 ):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
 
         user_id = payload.get("sub")
 
@@ -80,14 +88,16 @@ def get_current_user(
 
     except jwt.InvalidTokenError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
         )
 
     user = db.get(User, int(user_id))
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User no longer exists"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists",
         )
 
     return user
@@ -101,7 +111,6 @@ def get_current_user(
 #
 # Remove this once the database implementation is ready.
 # ---------------------------------------------------------
-
 
 mock_posts = [
     {
@@ -125,10 +134,12 @@ mock_posts = [
 
 
 @router.post("/auth/register", status_code=status.HTTP_201_CREATED)
-def register(new_user_data: UserRegistration, db: Session = Depends(get_db)):
+def register(
+    new_user_data: UserRegistration,
+    db: Session = Depends(get_db),
+):
     """
-
-    Register a new user. (Instantiate database class object of User WITH a HASHED PASSWORD)
+    Register a new user.
 
     Steps:
     1. Validate request body with Pydantic
@@ -138,35 +149,32 @@ def register(new_user_data: UserRegistration, db: Session = Depends(get_db)):
     5. Save user to database
     """
 
-    # 2. Check case where email already exists
     existing_email = db.scalar(select(User).where(User.email == new_user_data.email))
 
     if existing_email is not None:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Email is already registered"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email is already registered",
         )
 
-    # 2. Check case where username already exists
     existing_username = db.scalar(
         select(User).where(User.username == new_user_data.username)
     )
 
     if existing_username is not None:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Username is already taken"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username is already taken",
         )
 
-    # 3. Hash the plain-text password sent by the client
     hashed_password = hash_password(new_user_data.password)
 
-    # 4. Create SQLAlchemy database object
     new_user = User(
         email=new_user_data.email,
         username=new_user_data.username,
         hashed_password=hashed_password,
     )
 
-    # 5. Save/write database object to database
     try:
         db.add(new_user)
         db.commit()
@@ -180,67 +188,84 @@ def register(new_user_data: UserRegistration, db: Session = Depends(get_db)):
             detail="Unable to create user",
         )
 
-    return {"message": "User registered successfully", "user_id": new_user.user_id}
+    return {
+        "message": "User registered successfully",
+        "user_id": new_user.user_id,
+    }
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-def login(login_credentials: LoginRequest, db: Session = Depends(get_db)):
+def login(
+    login_credentials: LoginRequest,
+    db: Session = Depends(get_db),
+):
     """
     Authenticate a user.
 
-    Steps
-    1. validate long request with Pydantic model LoginRequest - get only necessary data from payload
-    2. Find associate user
+    Steps:
+    1. Validate login request with Pydantic
+    2. Find associated user
     3. Verify user exists
-    4. Verify password that is supplied
-    5. Generate JWT to send back to client that allows subsequent identifaction of current user in database
+    4. Verify supplied password
+    5. Generate JWT access token
     """
-    # Find user by username
+
     statement = select(User).where(User.username == login_credentials.username)
 
     user = db.scalar(statement)
 
-    # VALIDATION of USER AND PASSWORD compared to what is stored in database
-
-    # Check case where Username doesn't exist case ini database
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
         )
 
-    # Check Case where Password is incorrect
-    if not verify_password(login_credentials.password, user.hashed_password):
+    if not verify_password(
+        login_credentials.password,
+        user.hashed_password,
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
         )
 
-    # Credentials are valid, So we create JWT and return it to client.
-    access_token = create_access_token(user_id=user.user_id, username=user.username)
+    access_token = create_access_token(
+        user_id=user.user_id,
+        username=user.username,
+    )
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
 
 
-## Log out is handled on the front end.
+# Logout is handled on the frontend.
 
 
 # =========================================================
 # User / Profile Routes
-# used to instantiate a user profile
 # =========================================================
+
+
 @router.get("/users/me", response_model=UserResponse)
-def get_my_profile(current_user: User = Depends(get_current_user)):
+def get_my_profile(
+    current_user: User = Depends(get_current_user),
+):
     return current_user
 
 
 @router.get("/users/{user_id}", response_model=PublicUserResponse)
-def get_user_profile(user_id: int, db: Session = Depends(get_db)):
+def get_user_profile(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
     user = db.get(User, user_id)
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
         )
 
     return user
@@ -251,58 +276,72 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
 # =========================================================
 
 
-@router.get("/posts", response_model=list[PostResponse])
-def get_posts():
-    """
-    Retrieve travel posts for the Feed.
-@router.get("/users/me/posts", response_model=list[PostResponse])
-def get_my_posts(current_user: User = Depends(get_current_user)):
-
+@router.get(
+    "/users/me/posts",
+    response_model=list[PostResponse],
+)
+def get_my_posts(
+    current_user: User = Depends(get_current_user),
+):
     return current_user.posts
 
-@router.get("/users/{user_id}/posts", response_model=list[PostResponse])
-def get_user_posts(user_id: int, db: Session = Depends(get_db)):
 
+@router.get(
+    "/users/{user_id}/posts",
+    response_model=list[PostResponse],
+)
+def get_user_posts(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
     user = db.get(User, user_id)
-    
+
     if user is None:
         raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="User not found",
-    )
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
     return user.posts
-    
 
 
-
-@router.get("/posts/{post_id}", response_model = PostResponse)
-def get_post(post_id: int,  db: Session = Depends(get_db)):
+@router.get(
+    "/posts/{post_id}",
+    response_model=PostResponse,
+)
+def get_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+):
     """
     Retrieve one travel post.
     """
+
     post = db.get(Post, post_id)
 
     if post is None:
         raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Post not found",
-    )
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+
     return post
 
-@router.get("/posts", response_model=list[PostResponse])
+
+@router.get(
+    "/posts",
+    response_model=list[PostResponse],
+)
 def get_posts(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    posts = db.scalars(
-        select(Post)
-        .order_by(Post.created_at.desc())
-        .limit(20)
-    ).all()
+    """
+    Retrieve travel posts for the feed.
+    """
+
+    posts = db.scalars(select(Post).order_by(Post.created_at.desc()).limit(20)).all()
 
     return posts
-        
-
-
 
 
 @router.post(
@@ -310,18 +349,20 @@ def get_posts(
     response_model=PostResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_post(new_post_data: PostCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_post(
+    new_post_data: PostCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Create a new travel post.
-    TODO:
-    - Get user_id from authenticated user
-    - Store post using SQLAlchemy
     """
+
     new_post = Post(
-        user_id = current_user.user_id,
-        caption = new_post_data.caption,
-        media_url = new_post_data.media_url,
-        location = new_post_data.location
+        user_id=current_user.user_id,
+        caption=new_post_data.caption,
+        media_url=new_post_data.media_url,
+        location=new_post_data.location,
     )
 
     try:
@@ -355,17 +396,14 @@ def delete_post(
     Only the user who created the post may delete it.
     """
 
-    # Retrieve post by primary key
     post = db.get(Post, post_id)
 
-    # Post does not exist
     if post is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
 
-    # Logged-in user does not own the post
     if post.user_id != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -394,11 +432,11 @@ def delete_post(
 
 @router.get(
     "/locations/{location_id}",
-    response_model=LocationResponse
+    response_model=LocationResponse,
 )
 def get_location(
     location_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     location = db.get(Location, location_id)
 
@@ -413,11 +451,11 @@ def get_location(
 
 @router.get(
     "/locations/{location_id}/posts",
-    response_model=list[PostResponse]
+    response_model=list[PostResponse],
 )
 def get_posts_by_location(
     location_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     location = db.get(Location, location_id)
 
@@ -437,16 +475,17 @@ def get_posts_by_location(
 
 @router.get(
     "/itineraries",
-    response_model=list[ItineraryResponse]
+    response_model=list[ItineraryResponse],
 )
 def get_itineraries(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Retrieve itineraries belonging to the current user.
     """
 
     return current_user.itineraries
+
 
 @router.post(
     "/itineraries",
@@ -478,9 +517,10 @@ def create_itinerary(
 
     return new_itinerary
 
+
 @router.get(
     "/itineraries/{itinerary_id}",
-    response_model=ItineraryResponse
+    response_model=ItineraryResponse,
 )
 def get_itinerary(
     itinerary_id: int,
