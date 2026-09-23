@@ -1,13 +1,14 @@
-
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
+
 
 class Location(BaseModel):
     name: str
     latitude: float
     longitude: float
-    
+
+
 class LocationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,6 +41,7 @@ class ItineraryCreate(BaseModel):
     end_date: date
     destinations: list[int] = Field(default_factory=list)
 
+
 class ItineraryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     itinerary_id: int
@@ -47,15 +49,14 @@ class ItineraryResponse(BaseModel):
     name: str
     start_date: date
     end_date: date
-    destinations: list[LocationResponse] = Field(
-        default_factory=list
-    )
+    destinations: list[LocationResponse] = Field(default_factory=list)
 
 
 class SafetyReportCreate(BaseModel):
     report_type: str
     location: Location
     description: Optional[str] = None
+
 
 class SafetyReportResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
