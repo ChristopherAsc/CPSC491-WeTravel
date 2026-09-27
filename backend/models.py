@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -7,7 +6,6 @@ from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Table, Column,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
-
 
 itinerary_destinations = Table(
     "itinerary_destinations",
