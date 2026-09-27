@@ -78,3 +78,7 @@ coverage/
 # Temporary files
 *.tmp
 *.bak
+
+# Test databases
+test.db
+*.db
