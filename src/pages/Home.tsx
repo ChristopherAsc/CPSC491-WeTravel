@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { healthCheck } from "@/lib/api_config"
+import { healthCheck } from "@/api_configs"
 
 function Home() {
 
