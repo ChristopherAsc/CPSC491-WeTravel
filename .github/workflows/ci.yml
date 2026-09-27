@@ -26,6 +26,9 @@ jobs:
       - name: Lint frontend
         run: npm run lint
 
+      - name: Test frontend
+        run: npm run test
+
       - name: Build frontend
         run: npm run build
 
@@ -52,3 +55,10 @@ jobs:
       - name: Check backend formatting
         working-directory: backend
         run: uv run black --check .
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: sqlite+pysqlite:///:memory:
+          JWT_SECRET: ci-test-secret
+        run: uv run pytest
