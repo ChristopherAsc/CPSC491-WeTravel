@@ -13,7 +13,6 @@ from server import app
 from models import User
 from routes import hash_password
 
-
 TEST_DATABASE_URL = "sqlite:///./test.db"
 
 engine = create_engine(
