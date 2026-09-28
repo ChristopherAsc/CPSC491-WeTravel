@@ -38,9 +38,6 @@ const buttonVariants = cva(
     },
   }
 )
-import type { VariantProps } from "class-variance-authority"
-import { cn } from "cn"
-import { buttonVariants } from "./button-variants"
 
 function Button({
   className,
