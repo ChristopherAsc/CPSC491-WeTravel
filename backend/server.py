@@ -56,11 +56,10 @@ def health_check():
         "status": "healthy",
     }
 
+
 @app.get("/db-health")
 def db_health():
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
 
-    return {
-        "status": "database connected"
-    }
+    return {"status": "database connected"}
