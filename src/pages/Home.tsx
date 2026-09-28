@@ -9,7 +9,7 @@ function Home() {
     healthCheck()
       .then((data) => {
         setStatus(data.status)
-        console.log("Backend status:", status)
+        console.log("Backend status:", data.status)
       })
       .catch((error) => {
         console.error(error)
