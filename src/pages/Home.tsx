@@ -10,6 +10,7 @@ function Home() {
       .then((data) => {
         setStatus(data.status)
         console.log("Backend status:", data.status)
+        console.log("status variable", status)
       })
       .catch((error) => {
         console.error(error)
