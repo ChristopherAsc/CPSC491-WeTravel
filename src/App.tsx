@@ -8,10 +8,10 @@ import Home from "@/pages/Home"
 import Login from "@/pages/Login"
 import Register from "@/pages/Register"
 import Feed from "@/pages/Feed"
-import Map from "@/pages/Map"
 import CreatePost from "@/pages/CreatePost"
 import Itinerary from "@/pages/Itinerary"
 import Profile from "@/pages/Profile"
+import MapPage from "@/pages/MapPage"
 
 function App() {
   return (
@@ -26,7 +26,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/feed" element={<Feed />} />
-              <Route path="/map" element={<Map />} />
+              <Route path="/map" element={<MapPage />} />
               <Route path="/create-post" element={<CreatePost />} />
               <Route path="/itinerary" element={<Itinerary />} />
               <Route path="/profile" element={<Profile />} />
