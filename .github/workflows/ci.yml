@@ -36,6 +36,24 @@ jobs:
     name: Backend CI
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:18
+
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: wetravel_test
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd "pg_isready -U postgres -d wetravel_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -56,9 +74,20 @@ jobs:
         working-directory: backend
         run: uv run black --check .
 
+      # Existing fast backend tests.
+      # These continue to use Tony's SQLite test configuration.
       - name: Run backend tests
         working-directory: backend
         env:
           DATABASE_URL: "sqlite+pysqlite:///:memory:"
           JWT_SECRET: "ci-test-secret"
-        run: uv run pytest
+        run: uv run pytest tests --ignore=tests/integration
+
+      # Matt Sprint 2 added integration smoke tests.
+      # These use the real PostgreSQL database path.
+      - name: Run PostgreSQL integration tests
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wetravel_test"
+          JWT_SECRET: "ci-test-secret"
+        run: uv run pytest tests/integration -v
