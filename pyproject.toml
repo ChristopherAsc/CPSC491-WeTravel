@@ -25,3 +25,6 @@ target-version = ["py314"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+markers = [
+    "requirement(id): links a test to a Requirement ID in 'QA standard.md'",
+]
