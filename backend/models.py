@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Table, Column, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from database import Base
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, String, Table, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 itinerary_destinations = Table(
     "itinerary_destinations",

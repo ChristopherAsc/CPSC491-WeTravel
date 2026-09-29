@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
-from typing import List, Optional
-from datetime import datetime, date, timedelta, timezone
+from datetime import date, datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class Location(BaseModel):
