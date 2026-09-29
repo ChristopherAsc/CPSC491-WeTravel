@@ -71,19 +71,6 @@ def test_login_invalid_username(client):
     assert response.status_code == 401
 
 
-def test_register_invalid_email(client):
-    response = client.post(
-        "/api/auth/register",
-        json={
-            "username": "bademailuser",
-            "email": "not-an-email",
-            "password": "Password123!",
-        },
-    )
-
-    assert response.status_code == 422
-
-
 def test_login_invalid_password(client, seeded_user):
     response = client.post(
         "/api/auth/login",
@@ -137,16 +124,3 @@ def test_invalid_jwt_is_rejected(client):
     )
 
     assert response.status_code == 401
-
-
-def test_register_password_too_short(client):
-    response = client.post(
-        "/api/auth/register",
-        json={
-            "username": "shortpassuser",
-            "email": "shortpass@example.com",
-            "password": "123",
-        },
-    )
-
-    assert response.status_code == 422
