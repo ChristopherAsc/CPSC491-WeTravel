@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css"
-
+import { SafetyLayer } from "@/components/map/SafetyLayer"
 import { MarkerLayer } from "@/components/map/MarkerLayer"
 
 export function Map() {
@@ -68,7 +68,12 @@ export function Map() {
         className="h-[500px] w-full rounded-lg"
       />
 
-      {mapInstance && <MarkerLayer map={mapInstance} />}
+      {mapInstance && (
+  <>
+    <MarkerLayer map={mapInstance} />
+    <SafetyLayer map={mapInstance} />
+  </>
+)}
     </div>
   )
 }
