@@ -1,5 +1,5 @@
 from database import SessionLocal
-from models import User, Location, Post
+from models import Location, Post, User
 
 
 def seed_database():

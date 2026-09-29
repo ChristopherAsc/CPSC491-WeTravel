@@ -2,28 +2,27 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
+from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from models import Itinerary, Location, Post, SafetyReport, User
 from pwdlib import PasswordHash
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from database import get_db
-from models import User, Post, Location, Itinerary, SafetyReport
 from pydantic_models import (
-    LocationResponse,
-    PostResponse,
-    PostCreate,
-    UserRegistration,
-    UserResponse,
-    PublicUserResponse,
     ItineraryCreate,
     ItineraryResponse,
+    LocationResponse,
+    LoginRequest,
+    PostCreate,
+    PostResponse,
+    PublicUserResponse,
     SafetyReportCreate,
     SafetyReportResponse,
-    LoginRequest,
     TokenResponse,
+    UserRegistration,
+    UserResponse,
 )
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 # ---------------------------------------------------------
 # Router Setup

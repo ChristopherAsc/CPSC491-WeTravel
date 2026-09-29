@@ -1,13 +1,12 @@
 import os
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from database import Base, get_db
+from fastapi.testclient import TestClient
 from models import User
 from server import app
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
