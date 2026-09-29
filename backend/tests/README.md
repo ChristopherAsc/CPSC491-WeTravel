@@ -29,10 +29,13 @@ The current test suite verifies:
 3. Duplicate username rejection
 4. Successful login
 5. Invalid username rejection
-6. Invalid password rejection
-7. Protected routes reject unauthenticated requests
-8. Valid JWT tokens allow access to protected routes
-9. Invalid JWT tokens are rejected
+6. Invalid Email Register
+7. Invalid password rejection
+8. Protected routes reject unauthenticated requests
+9. Valid JWT tokens allow access to protected routes
+10. Invalid JWT tokens are rejected
+11. Testing for password length
+
 
 ## Running the Tests
 
