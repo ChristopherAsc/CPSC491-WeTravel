@@ -85,12 +85,9 @@ jobs:
           JWT_SECRET: "ci-test-secret"
         run: uv run pytest tests --ignore=tests/integration
 
-      # Matt Sprint 2 added integration smoke tests.
+      # integration smoke tests.
       # These use the real PostgreSQL database path.
-
-
-
-      - name: Run PostgreSQL integration tests
+      - name: Run PostgreSQL integration tests. validate db object serialization for /api/posts, /api/auth/login, /api/auth/registration, /api/users/me
         working-directory: backend
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wetravel_test"
