@@ -71,3 +71,86 @@ def test_get_posts_returns_empty_list_when_no_posts_exist(client):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_registration_login_and_protected_route_integration(client):
+    """
+    Verify the PostgreSQL authentication integration path:
+
+    Registration
+        -> FastAPI
+        -> password hashing
+        -> SQLAlchemy
+        -> PostgreSQL persistence
+        -> Login
+        -> credential verification
+        -> JWT generation
+        -> protected route
+        -> JWT validation
+        -> PostgreSQL user lookup
+    """
+
+    registration_data = {
+        "username": "integration_auth_user",
+        "email": "integration_auth@example.com",
+        "password": "TestPassword123!",
+    }
+
+    # -------------------------------------------------
+    # Register user
+    # -------------------------------------------------
+
+    register_response = client.post(
+        "/api/auth/register",
+        json=registration_data,
+    )
+
+    assert register_response.status_code == 201
+
+    register_data = register_response.json()
+
+    assert register_data["message"] == "User registered successfully"
+    assert "user_id" in register_data
+
+    registered_user_id = register_data["user_id"]
+
+    # -------------------------------------------------
+    # Login using persisted PostgreSQL user
+    # -------------------------------------------------
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "username": registration_data["username"],
+            "password": registration_data["password"],
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    login_data = login_response.json()
+
+    assert "access_token" in login_data
+    assert login_data["access_token"]
+    assert login_data["token_type"] == "bearer"
+
+    token = login_data["access_token"]
+
+    # -------------------------------------------------
+    # Use JWT against protected route
+    # -------------------------------------------------
+
+    user_response = client.get(
+        "/api/users/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert user_response.status_code == 200
+
+    user_data = user_response.json()
+
+    assert user_data["user_id"] == registered_user_id
+    assert user_data["username"] == registration_data["username"]
+    assert user_data["email"] == registration_data["email"]
