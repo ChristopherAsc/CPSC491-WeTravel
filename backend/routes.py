@@ -240,6 +240,13 @@ def login(
     }
 
 
+@router.get("/auth/me", response_model=UserResponse)
+def get_authenticated_user(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user
+
+
 # Logout is handled on the frontend.
 
 
