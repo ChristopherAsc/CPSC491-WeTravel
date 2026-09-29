@@ -84,12 +84,12 @@ jobs:
           DATABASE_URL: "sqlite+pysqlite:///:memory:"
           JWT_SECRET: "ci-test-secret"
         run: uv run pytest tests --ignore=tests/integration
-<<<<<<< HEAD
+
       # Matt Sprint 2 added integration smoke tests.
       # These use the real PostgreSQL database path.
-=======
 
->>>>>>> 8010693 (Add Ruff linting to backend CI)
+
+
       - name: Run PostgreSQL integration tests
         working-directory: backend
         env:
