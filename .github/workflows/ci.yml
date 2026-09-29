@@ -74,8 +74,10 @@ jobs:
         working-directory: backend
         run: uv run black --check .
 
-      # Existing fast backend tests.
-      # These continue to use Tony's SQLite test configuration.
+      - name: Lint backend
+        working-directory: backend
+        run: uv run ruff check .
+
       - name: Run backend tests
         working-directory: backend
         env:
@@ -91,6 +93,7 @@ jobs:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wetravel_test"
           JWT_SECRET: "ci-test-secret"
         run: uv run pytest tests/integration -v
+
   qa-check:
     name: Verify QA documentation and requirements traceability
     runs-on: ubuntu-latest
@@ -108,4 +111,3 @@ jobs:
 
       - name: Verify requirements traceability matrix
         run: python scripts/verify_traceability.py
-
