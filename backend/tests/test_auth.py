@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.requirement("AUTH-01")
 def test_register_success(client):
     response = client.post(
         "/api/auth/register",
@@ -16,6 +20,7 @@ def test_register_success(client):
     assert "user_id" in data
 
 
+@pytest.mark.requirement("AUTH-01")
 def test_register_duplicate_email(client, seeded_user):
     response = client.post(
         "/api/auth/register",
@@ -29,6 +34,7 @@ def test_register_duplicate_email(client, seeded_user):
     assert response.status_code == 409
 
 
+@pytest.mark.requirement("AUTH-01")
 def test_register_duplicate_username(client, seeded_user):
     response = client.post(
         "/api/auth/register",
@@ -42,6 +48,7 @@ def test_register_duplicate_username(client, seeded_user):
     assert response.status_code == 409
 
 
+@pytest.mark.requirement("AUTH-02")
 def test_login_success(client, seeded_user):
     response = client.post(
         "/api/auth/login",
@@ -59,6 +66,7 @@ def test_login_success(client, seeded_user):
     assert data["token_type"] == "bearer"
 
 
+@pytest.mark.requirement("AUTH-02")
 def test_login_invalid_username(client):
     response = client.post(
         "/api/auth/login",
@@ -71,6 +79,7 @@ def test_login_invalid_username(client):
     assert response.status_code == 401
 
 
+@pytest.mark.requirement("AUTH-02")
 def test_login_invalid_password(client, seeded_user):
     response = client.post(
         "/api/auth/login",
@@ -83,12 +92,14 @@ def test_login_invalid_password(client, seeded_user):
     assert response.status_code == 401
 
 
+@pytest.mark.requirement("AUTH-05")
 def test_protected_route_requires_token(client):
     response = client.get("/api/users/me")
 
     assert response.status_code == 401
 
 
+@pytest.mark.requirement("AUTH-05")
 def test_protected_route_with_valid_token(client, seeded_user):
     login_response = client.post(
         "/api/auth/login",
@@ -115,6 +126,7 @@ def test_protected_route_with_valid_token(client, seeded_user):
     assert data["email"] == "test@example.com"
 
 
+@pytest.mark.requirement("AUTH-05")
 def test_invalid_jwt_is_rejected(client):
     response = client.get(
         "/api/users/me",

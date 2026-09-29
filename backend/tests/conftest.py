@@ -70,6 +70,22 @@ def client(db):
     app.dependency_overrides.clear()
 
 
+def pytest_runtest_makereport(item, call):
+    """Print the linked Requirement ID when an automated test fails.
+
+    Traces a failing test straight back to the requirement/acceptance
+    criterion it verifies in 'QA standard.md', without needing to open
+    the traceability matrix by hand.
+    """
+    if call.when == "call" and call.excinfo is not None:
+        marker = item.get_closest_marker("requirement")
+        if marker and marker.args:
+            print(
+                f"\n[traceability] {item.nodeid} FAILED "
+                f"-> Requirement ID(s): {', '.join(marker.args)}"
+            )
+
+
 @pytest.fixture()
 def seeded_user(db):
     user = User(
