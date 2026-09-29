@@ -3,3 +3,35 @@
 
 
 
+## Requirements Traceability Matrix
+
+The following matrix maps the MVP acceptance criteria defined above
+to the tests used to verify them.
+
+### Authentication
+
+| Requirement ID | Acceptance Criterion | Test ID | Test Type | Test Location | Status |
+|---|---|---|---|---|---|
+| AUTH-01 | User can register with email and password; duplicate emails are rejected | TBD | Automated | TBD | Not Covered |
+| AUTH-02 | Login succeeds with correct credentials and fails with a clear error otherwise | TBD | Automated | TBD | Not Covered |
+| AUTH-03 | Session survives page refresh and normal navigation | TBD | TBD | TBD | Not Covered |
+| AUTH-04 | Logout clears the session | TBD | TBD | TBD | Not Covered |
+| AUTH-05 | Protected routes redirect unauthenticated users instead of showing content | TBD | TBD | TBD | Not Covered |
+
+### Feed
+
+| Requirement ID | Acceptance Criterion | Test ID | Test Type | Test Location | Status |
+|---|---|---|---|---|---|
+| FEED-01 | Feed loads and shows posts in a consistent order (newest first) | TBD | TBD | TBD | Not Covered |
+| FEED-02 | Each post shows author, caption, media, and location when available | TBD | TBD | TBD | Not Covered |
+| FEED-03 | Empty state (no posts yet) is handled | TBD | TBD | TBD | Not Covered |
+| FEED-04 | Loading state and failed-fetch state are both handled | TBD | TBD | TBD | Not Covered |
+
+### Map
+
+| Requirement ID | Acceptance Criterion | Test ID | Test Type | Test Location | Status |
+|---|---|---|---|---|---|
+| MAP-01 | Map loads and centers on a default or the user's location | TBD | TBD | TBD | Not Covered |
+| MAP-02 | Markers/hotspots render and are clickable | TBD | TBD | TBD | Not Covered |
+| MAP-03 | Selecting a marker shows the relevant info | TBD | TBD | TBD | Not Covered |
+| MAP-04 | Missing or invalid location data doesn't crash the map | TBD | TBD | TBD | Not Covered |

@@ -81,8 +81,8 @@ jobs:
         env:
           DATABASE_URL: "sqlite+pysqlite:///:memory:"
           JWT_SECRET: "ci-test-secret"
-        run: uv run pytest tests --ignore=tests/integration
-
+        run: uv run pytest
+        
       # Matt Sprint 2 added integration smoke tests.
       # These use the real PostgreSQL database path.
       - name: Run PostgreSQL integration tests
@@ -91,3 +91,15 @@ jobs:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wetravel_test"
           JWT_SECRET: "ci-test-secret"
         run: uv run pytest tests/integration -v
+  qa-check:
+    name: Verify QA documentation exists
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify QA documentation exists
+        run: test -f "QA standard.md"
+        run: uv run pytest tests --ignore=tests/integration
+
