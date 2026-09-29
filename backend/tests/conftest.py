@@ -9,14 +9,13 @@ os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 os.environ["JWT_SECRET"] = "test-secret-key-for-ci-testing-123456789"
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from database import Base, get_db
-from server import app
+from fastapi.testclient import TestClient
 from models import User
 from routes import hash_password
+from server import app
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 TEST_DATABASE_URL = "sqlite:///./test.db"
 

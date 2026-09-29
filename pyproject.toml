@@ -18,10 +18,25 @@ dev = [
     "black>=26.5.1",
     "httpx>=0.28.1",
     "pytest>=9.1.1",
+    "ruff",
 ]
 
 [tool.black]
 target-version = ["py314"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # import sorting
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/alembic/versions/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

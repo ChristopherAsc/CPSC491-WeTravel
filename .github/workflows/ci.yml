@@ -74,23 +74,24 @@ jobs:
         working-directory: backend
         run: uv run black --check .
 
-      # Existing fast backend tests.
-      # These continue to use Tony's SQLite test configuration.
+      - name: Lint backend
+        working-directory: backend
+        run: uv run ruff check .
+
       - name: Run backend tests
         working-directory: backend
         env:
           DATABASE_URL: "sqlite+pysqlite:///:memory:"
           JWT_SECRET: "ci-test-secret"
-        run: uv run pytest
-        
-      # Matt Sprint 2 added integration smoke tests.
-      # These use the real PostgreSQL database path.
+        run: uv run pytest tests --ignore=tests/integration
+
       - name: Run PostgreSQL integration tests
         working-directory: backend
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wetravel_test"
           JWT_SECRET: "ci-test-secret"
         run: uv run pytest tests/integration -v
+
   qa-check:
     name: Verify QA documentation exists
     runs-on: ubuntu-latest
@@ -101,5 +102,3 @@ jobs:
 
       - name: Verify QA documentation exists
         run: test -f "QA standard.md"
-        run: uv run pytest tests --ignore=tests/integration
-

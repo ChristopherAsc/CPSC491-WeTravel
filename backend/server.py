@@ -1,9 +1,8 @@
+from database import engine
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-from database import engine
-
 from routes import router
+from sqlalchemy import text
 
 app = FastAPI(
     title="WeTravel API",
