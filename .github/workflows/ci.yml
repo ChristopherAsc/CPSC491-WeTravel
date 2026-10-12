@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+jobs:
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Test frontend
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: wetravel_test
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd "pg_isready -U postgres -d wetravel_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --dev
+
+      - name: Check backend formatting
+        working-directory: backend
+        run: uv run black --check .
+
+      - name: Lint backend
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: "sqlite+pysqlite:///:memory:"
+          JWT_SECRET: "ci-test-secret"
+        run: uv run pytest tests --ignore=tests/integration
+
+      # integration smoke tests.
+      # These use the real PostgreSQL database path.
+      - name: Run PostgreSQL integration tests. validate db object serialization for /api/posts, /api/auth/login, /api/auth/registration, /api/users/me
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/wetravel_test"
+          JWT_SECRET: "ci-test-secret"
+        run: uv run pytest tests/integration -v
+
+  qa-check:
+    name: Verify QA documentation and requirements traceability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Verify QA documentation exists
+        run: test -f "QA standard.md"
+
+      - name: Verify requirements traceability matrix
+        run: python scripts/verify_traceability.py

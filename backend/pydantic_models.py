@@ -1,9 +1,19 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class Location(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+
+
+class LocationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    location_id: int
     name: str
     latitude: float
     longitude: float
@@ -11,11 +21,12 @@ class Location(BaseModel):
 
 class PostCreate(BaseModel):
     caption: str = Field(min_length=1, max_length=2200)
-    media_url: Optional[str] = None
+    media_url: Optional[str] = Field(default=None, max_length=2048)
     location: Location
 
 
 class PostResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     post_id: int
     user_id: int
     caption: str
@@ -26,21 +37,48 @@ class PostResponse(BaseModel):
 
 class ItineraryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = None
+    start_date: date
+    end_date: date
+    destinations: list[int] = Field(default_factory=list)
+
+
+class ItineraryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    itinerary_id: int
+    user_id: int
+    name: str
+    start_date: date
+    end_date: date
+    destinations: list[LocationResponse] = Field(default_factory=list)
 
 
 class SafetyReportCreate(BaseModel):
-    report_type: str
+    report_type: str = Field(min_length=1, max_length=100)
     location: Location
+    description: Optional[str] = Field(default=None, max_length=2000)
+
+
+class SafetyReportResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    report_id: int
+    user_id: int
+    report_type: str
+    location: LocationResponse
     description: Optional[str] = None
+    created_at: datetime
 
 
 class UserRegistration(BaseModel):
-    email = EmailStr
-    username = str
-    password = str = Field(min_length=6)
+    email: EmailStr
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     username: str
     email: str
@@ -48,11 +86,18 @@ class UserResponse(BaseModel):
 
 
 class PublicUserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     username: str
     posts: list[PostResponse] = []
 
 
 class LoginRequest(BaseModel):
-    entered_username: str
-    entered_password: str
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
