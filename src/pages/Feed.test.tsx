@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import Feed from "./Feed"
 import { getPosts } from "@/api_configs"
@@ -8,8 +8,14 @@ vi.mock("@/api_configs", () => ({ getPosts: vi.fn() }))
 const mockedGetPosts = vi.mocked(getPosts)
 const renderFeed = () => render(<MemoryRouter><Feed /></MemoryRouter>)
 
-beforeEach(() => vi.clearAllMocks())
-afterEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 describe("Feed", () => {
   it("shows posts and their metadata from the API", async () => {
@@ -37,11 +43,24 @@ describe("Feed", () => {
   })
 
   it("allows retrying after a failure", async () => {
-    mockedGetPosts.mockRejectedValueOnce(new Error("network error")).mockResolvedValueOnce([])
-    vi.spyOn(console, "error").mockImplementation(() => {})
-    renderFeed()
-    await screen.findByRole("alert")
-    screen.getByRole("button", { name: /try again/i }).click()
-    await waitFor(() => expect(screen.getByText("No travel posts yet")).toBeInTheDocument())
+  mockedGetPosts
+    .mockRejectedValueOnce(new Error("network error"))
+    .mockResolvedValueOnce([])
+
+  vi.spyOn(console, "error").mockImplementation(() => {})
+
+  renderFeed()
+
+  await screen.findByRole("alert")
+
+  fireEvent.click(
+    screen.getByRole("button", { name: /try again/i })
+  )
+
+  await waitFor(() => {
+    expect(screen.getByText("No travel posts yet")).toBeInTheDocument()
   })
+
+  expect(mockedGetPosts).toHaveBeenCalledTimes(2)
+})
 })
