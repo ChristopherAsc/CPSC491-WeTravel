@@ -5,9 +5,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class Location(BaseModel):
-    name: str
-    latitude: float
-    longitude: float
+    name: str = Field(min_length=1, max_length=255)
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
 
 
 class LocationResponse(BaseModel):
@@ -21,7 +21,7 @@ class LocationResponse(BaseModel):
 
 class PostCreate(BaseModel):
     caption: str = Field(min_length=1, max_length=2200)
-    media_url: Optional[str] = None
+    media_url: Optional[str] = Field(default=None, max_length=2048)
     location: Location
 
 
@@ -54,9 +54,9 @@ class ItineraryResponse(BaseModel):
 
 
 class SafetyReportCreate(BaseModel):
-    report_type: str
+    report_type: str = Field(min_length=1, max_length=100)
     location: Location
-    description: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=2000)
 
 
 class SafetyReportResponse(BaseModel):

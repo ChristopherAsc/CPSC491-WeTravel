@@ -1,4 +1,3 @@
-
 """Add post, safety, location, and itinerary tables.
 
 Revision ID: ff6b866c8309
@@ -8,9 +7,8 @@ Create Date: 2026-10-11
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # Alembic revision identifiers
 revision: str = "ff6b866c8309"
@@ -41,9 +39,7 @@ def upgrade() -> None:
         sa.Column("description", sa.String(length=2000), nullable=True),
         sa.Column("start_date", sa.Date(), nullable=False),
         sa.Column("end_date", sa.Date(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.user_id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.user_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("itinerary_id"),
     )
 
@@ -68,12 +64,8 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["location_id"], ["locations.location_id"]
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.user_id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["location_id"], ["locations.location_id"]),
+        sa.ForeignKeyConstraint(["user_id"], ["users.user_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("post_id"),
     )
 
@@ -104,12 +96,8 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["location_id"], ["locations.location_id"]
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.user_id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["location_id"], ["locations.location_id"]),
+        sa.ForeignKeyConstraint(["user_id"], ["users.user_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("report_id"),
     )
 

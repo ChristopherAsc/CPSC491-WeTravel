@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from models import Itinerary, Location, Post, SafetyReport, User
 from pwdlib import PasswordHash
 from pydantic_models import (
@@ -39,7 +39,9 @@ ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
 password_hash = PasswordHash.recommended()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+# HTTP Bearer allows JWT authentication directly in Swagger.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def hash_password(plain_password: str) -> str:
@@ -61,15 +63,24 @@ def create_access_token(user_id: int, username: str) -> str:
         "exp": expiration,
     }
 
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-    return token
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ):
+    """Retrieve the authenticated user from a JWT token."""
+
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+
     try:
         payload = jwt.decode(
             token,
@@ -85,13 +96,16 @@ def get_current_user(
                 detail="Invalid authentication token",
             )
 
-    except jwt.InvalidTokenError:
+        user_id = int(user_id)
+
+    except jwt.InvalidTokenError, ValueError, TypeError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
-        )
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
 
-    user = db.get(User, int(user_id))
+    user = db.get(User, user_id)
 
     if user is None:
         raise HTTPException(
@@ -102,51 +116,20 @@ def get_current_user(
     return user
 
 
-# ---------------------------------------------------------
-# Temporary Mock Data
-# ---------------------------------------------------------
-# This lets the frontend work with the API before PostgreSQL
-# and SQLAlchemy are connected.
-#
-# Remove this once the database implementation is ready.
-# ---------------------------------------------------------
-
-mock_posts = [
-    {
-        "post_id": 1,
-        "user_id": 1,
-        "caption": "Exploring Yosemite!",
-        "media_url": "https://example.com/yosemite.jpg",
-        "location": {
-            "name": "Yosemite National Park",
-            "latitude": 37.8651,
-            "longitude": -119.5383,
-        },
-        "created_at": "2026-09-01T18:30:00Z",
-    }
-]
-
-
 # =========================================================
 # Authentication Routes
 # =========================================================
 
 
-@router.post("/auth/register", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/auth/register",
+    status_code=status.HTTP_201_CREATED,
+)
 def register(
     new_user_data: UserRegistration,
     db: Session = Depends(get_db),
 ):
-    """
-    Register a new user.
-
-    Steps:
-    1. Validate request body with Pydantic
-    2. Check for duplicate email/username
-    3. Hash password
-    4. Create new SQLAlchemy User object
-    5. Save user to database
-    """
+    """Register a new user."""
 
     existing_email = db.scalar(select(User).where(User.email == new_user_data.email))
 
@@ -166,12 +149,10 @@ def register(
             detail="Username is already taken",
         )
 
-    hashed_password = hash_password(new_user_data.password)
-
     new_user = User(
         email=new_user_data.email,
         username=new_user_data.username,
-        hashed_password=hashed_password,
+        hashed_password=hash_password(new_user_data.password),
     )
 
     try:
@@ -181,11 +162,10 @@ def register(
 
     except Exception:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to create user",
-        )
+        ) from None
 
     return {
         "message": "User registered successfully",
@@ -193,33 +173,21 @@ def register(
     }
 
 
-@router.post("/auth/login", response_model=TokenResponse)
+@router.post(
+    "/auth/login",
+    response_model=TokenResponse,
+)
 def login(
     login_credentials: LoginRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Authenticate a user.
-
-    Steps:
-    1. Validate login request with Pydantic
-    2. Find associated user
-    3. Verify user exists
-    4. Verify supplied password
-    5. Generate JWT access token
-    """
+    """Authenticate a user and return a JWT token."""
 
     statement = select(User).where(User.username == login_credentials.username)
 
     user = db.scalar(statement)
 
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password",
-        )
-
-    if not verify_password(
+    if user is None or not verify_password(
         login_credentials.password,
         user.hashed_password,
     ):
@@ -239,14 +207,14 @@ def login(
     }
 
 
-@router.get("/auth/me", response_model=UserResponse)
+@router.get(
+    "/auth/me",
+    response_model=UserResponse,
+)
 def get_authenticated_user(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
-
-
-# Logout is handled on the frontend.
 
 
 # =========================================================
@@ -254,14 +222,20 @@ def get_authenticated_user(
 # =========================================================
 
 
-@router.get("/users/me", response_model=UserResponse)
+@router.get(
+    "/users/me",
+    response_model=UserResponse,
+)
 def get_my_profile(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
 
 
-@router.get("/users/{user_id}", response_model=PublicUserResponse)
+@router.get(
+    "/users/{user_id}",
+    response_model=PublicUserResponse,
+)
 def get_user_profile(
     user_id: int,
     db: Session = Depends(get_db),
@@ -319,9 +293,7 @@ def get_post(
     post_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    Retrieve one travel post.
-    """
+    """Retrieve an individual travel post."""
 
     post = db.get(Post, post_id)
 
@@ -341,13 +313,16 @@ def get_post(
 def get_posts(
     db: Session = Depends(get_db),
 ):
-    """
-    Retrieve travel posts for the feed.
-    """
+    """Retrieve the latest 20 travel posts."""
 
-    posts = db.scalars(select(Post).order_by(Post.created_at.desc()).limit(20)).all()
-
-    return posts
+    return db.scalars(
+        select(Post)
+        .order_by(
+            Post.created_at.desc(),
+            Post.post_id.desc(),
+        )
+        .limit(20)
+    ).all()
 
 
 @router.post(
@@ -360,15 +335,19 @@ def create_post(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Create a new travel post.
-    """
+    """Create a travel post with location information."""
+
+    new_location = Location(
+        name=new_post_data.location.name,
+        latitude=new_post_data.location.latitude,
+        longitude=new_post_data.location.longitude,
+    )
 
     new_post = Post(
         user_id=current_user.user_id,
         caption=new_post_data.caption,
         media_url=new_post_data.media_url,
-        location=new_post_data.location,
+        location=new_location,
     )
 
     try:
@@ -378,11 +357,10 @@ def create_post(
 
     except Exception:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to create post",
-        )
+        ) from None
 
     return new_post
 
@@ -396,11 +374,7 @@ def delete_post(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Delete a travel post.
-
-    Only the user who created the post may delete it.
-    """
+    """Delete a post owned by the authenticated user."""
 
     post = db.get(Post, post_id)
 
@@ -422,13 +396,10 @@ def delete_post(
 
     except Exception:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to delete post",
-        )
-
-    return
+        ) from None
 
 
 # =========================================================
@@ -486,9 +457,7 @@ def get_posts_by_location(
 def get_itineraries(
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Retrieve itineraries belonging to the current user.
-    """
+    """Retrieve the authenticated user's itineraries."""
 
     return current_user.itineraries
 
@@ -503,6 +472,8 @@ def create_itinerary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Existing itinerary implementation retained.
+    # This feature is owned by another team member.
     new_itinerary = Itinerary(
         user_id=current_user.user_id,
         name=itinerary_data.name,
@@ -515,11 +486,10 @@ def create_itinerary(
 
     except Exception:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to create itinerary",
-        )
+        ) from None
 
     return new_itinerary
 
@@ -551,17 +521,27 @@ def get_itinerary(
 
 
 # =========================================================
-# Safety Routes
+# Safety Report Routes
 # =========================================================
 
 
-@router.get("/safety-reports")
-def get_safety_reports():
-    """
-    Retrieve safety reports.
-    """
+@router.get(
+    "/safety-reports",
+    response_model=list[SafetyReportResponse],
+)
+def get_safety_reports(
+    db: Session = Depends(get_db),
+):
+    """Retrieve safety reports from PostgreSQL."""
 
-    return []
+    return db.scalars(
+        select(SafetyReport)
+        .order_by(
+            SafetyReport.created_at.desc(),
+            SafetyReport.report_id.desc(),
+        )
+        .limit(100)
+    ).all()
 
 
 @router.post(
@@ -574,10 +554,18 @@ def create_safety_report(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Create a safety report with location information."""
+
+    new_location = Location(
+        name=report_data.location.name,
+        latitude=report_data.location.latitude,
+        longitude=report_data.location.longitude,
+    )
+
     new_report = SafetyReport(
         user_id=current_user.user_id,
         report_type=report_data.report_type,
-        location=report_data.location,
+        location=new_location,
         description=report_data.description,
     )
 
@@ -588,10 +576,9 @@ def create_safety_report(
 
     except Exception:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to create safety report",
-        )
+        ) from None
 
     return new_report
