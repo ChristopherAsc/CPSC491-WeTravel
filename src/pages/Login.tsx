@@ -1,46 +1,45 @@
 import { useState } from "react"
 
-import { getCurrentUser, loginUser } from "@/api_configs"
+import { loginUser } from "@/api_configs"
+import { useAuth } from "@/auth/useAuth"
 
 function Login() {
+  const { login, user } = useAuth()
+
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState("")
 
-  async function handleSubmit(
-  event: React.SubmitEvent<HTMLFormElement>
-) {
-  event.preventDefault()
+  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
 
-  try {
-    setMessage("Logging in...")
+    try {
+      setMessage("Logging in...")
 
-    // Send username/password to FastAPI
-    const loginData = await loginUser(username, password)
+      // Send username/password to FastAPI
+      const loginData = await loginUser(username, password)
 
-    // Store JWT returned by the backend
-    localStorage.setItem("access_token", loginData.access_token)
+      // Store the JWT and load the current user into the shared auth state
+      await login(loginData.access_token)
 
-    // Verify that the JWT works on a protected endpoint
-    const currentUser = await getCurrentUser(loginData.access_token)
+      setMessage(`Logged in as ${username}`)
+    } catch (error) {
+      console.error("Login failed:", error)
 
-    console.log("Authenticated user:", currentUser)
-
-    setMessage(`Logged in as ${currentUser.username}`)
-  } catch (error) {
-    console.error("Login failed:", error)
-
-    if (error instanceof Error) {
-      setMessage(error.message)
-    } else {
-      setMessage("Login failed")
+      if (error instanceof Error) {
+        setMessage(error.message)
+      } else {
+        setMessage("Login failed")
+      }
     }
   }
-}
 
   return (
     <div>
       <h1>Login</h1>
+
+      {/* Visible proof that the session survives a refresh (until the Navbar shows it) */}
+      {user && <p>Currently logged in as {user.username}</p>}
 
       <form onSubmit={handleSubmit}>
         <div>
@@ -67,9 +66,7 @@ function Login() {
           />
         </div>
 
-        <button type="submit">
-          Login
-        </button>
+        <button type="submit">Login</button>
       </form>
 
       {message && <p>{message}</p>}

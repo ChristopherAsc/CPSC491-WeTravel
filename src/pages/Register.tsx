@@ -1,8 +1,11 @@
 import { useState } from "react"
 
 import { loginUser, registerUser } from "@/api_configs"
+import { useAuth } from "@/auth/useAuth"
 
 function Register() {
+  const { login } = useAuth()
+
   const [email, setEmail] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -28,7 +31,8 @@ function Register() {
       // The backend does not return a token on register, so log in right away
       const loginData = await loginUser(username, password)
 
-      localStorage.setItem("access_token", loginData.access_token)
+      // Store the JWT and load the current user into the shared auth state
+      await login(loginData.access_token)
 
       setMessage(`Account created. Logged in as ${username}`)
     } catch (error) {

@@ -4,9 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { loginUser, registerUser } from "@/api_configs"
 import Register from "@/pages/Register"
 
+const { loginMock } = vi.hoisted(() => ({ loginMock: vi.fn() }))
+
 vi.mock("@/api_configs", () => ({
   registerUser: vi.fn(),
   loginUser: vi.fn(),
+}))
+
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({ login: loginMock }),
 }))
 
 function fillForm(password: string, confirmPassword: string) {
@@ -26,8 +32,7 @@ function fillForm(password: string, confirmPassword: string) {
 }
 
 beforeEach(() => {
-  localStorage.clear()
-  vi.clearAllMocks()
+  vi.resetAllMocks()
 })
 
 afterEach(() => {
@@ -44,12 +49,13 @@ describe("Register page", () => {
     expect(registerUser).not.toHaveBeenCalled()
   })
 
-  it("registers, logs in, and stores the token", async () => {
+  it("registers, logs in, and hands the token to the auth state", async () => {
     vi.mocked(registerUser).mockResolvedValue({ message: "ok", user_id: 1 })
     vi.mocked(loginUser).mockResolvedValue({
       access_token: "fake-token",
       token_type: "bearer",
     })
+    loginMock.mockResolvedValue(undefined)
 
     render(<Register />)
 
@@ -64,7 +70,7 @@ describe("Register page", () => {
       "password123"
     )
     expect(loginUser).toHaveBeenCalledWith("tester", "password123")
-    expect(localStorage.getItem("access_token")).toBe("fake-token")
+    expect(loginMock).toHaveBeenCalledWith("fake-token")
   })
 
   it("shows the backend error and skips login when register fails", async () => {
@@ -78,7 +84,7 @@ describe("Register page", () => {
 
     expect(await screen.findByText("Username is already taken")).toBeTruthy()
     expect(loginUser).not.toHaveBeenCalled()
-    expect(localStorage.getItem("access_token")).toBeNull()
+    expect(loginMock).not.toHaveBeenCalled()
   })
 
   it("tells the user when register works but automatic login fails", async () => {
@@ -92,6 +98,26 @@ describe("Register page", () => {
     expect(
       await screen.findByText(
         "Account created, but automatic login failed: Login failed: 500"
+      )
+    ).toBeTruthy()
+    expect(loginMock).not.toHaveBeenCalled()
+  })
+
+  it("tells the user when the auth state cannot load the new user", async () => {
+    vi.mocked(registerUser).mockResolvedValue({ message: "ok", user_id: 1 })
+    vi.mocked(loginUser).mockResolvedValue({
+      access_token: "fake-token",
+      token_type: "bearer",
+    })
+    loginMock.mockRejectedValue(new Error("Failed to load current user: 500"))
+
+    render(<Register />)
+
+    fillForm("password123", "password123")
+
+    expect(
+      await screen.findByText(
+        "Account created, but automatic login failed: Failed to load current user: 500"
       )
     ).toBeTruthy()
   })
