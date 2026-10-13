@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useWatch } from "react-hook-form"
 import { ImagePlus, MapPin, Send, X } from "lucide-react"
+import { useAuth } from "@/auth/useAuth"
 
 import { createPostSchema, type CreatePostFormData } from "@/schemas/createPostSchema"
 
@@ -14,7 +15,7 @@ const initialValues: CreatePostFormData = {
 const inputStyles = "mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#0D3B66] focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
 
 function CreatePost() {
-  const [isSignedIn, setIsSignedIn] = useState(() => Boolean(localStorage.getItem("access_token")))
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const [submitError, setSubmitError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -71,8 +72,7 @@ function CreatePost() {
       return
     }
 
-    if (!localStorage.getItem("access_token")) {
-      setIsSignedIn(false)
+    if (!isAuthenticated) {
       setSubmitError("Please log in before creating a post.")
       return
     }
@@ -89,7 +89,7 @@ function CreatePost() {
         <p className="mt-2 text-sm text-gray-600">Share a place you visited with the WeTravel community.</p>
       </div>
 
-      {!isSignedIn && (
+      {!isAuthLoading && !isAuthenticated && (
         <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
           You must be signed in to publish a post. <Link to="/login" className="font-semibold underline">Go to Login</Link>.
         </div>
@@ -166,7 +166,7 @@ function CreatePost() {
         {submitError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{submitError}</div>}
         {successMessage && <div role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">{successMessage} <Link to="/feed" className="font-semibold underline">View Feed</Link></div>}
 
-        <button type="submit" disabled={isSubmitting || !isSignedIn} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D3B66] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#15558b] disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="submit" disabled={isSubmitting || isAuthLoading || !isAuthenticated} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D3B66] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#15558b] disabled:cursor-not-allowed disabled:opacity-50">
           <Send size={17} aria-hidden="true" />
           {isSubmitting ? "Publishing..." : "Publish post"}
         </button>
