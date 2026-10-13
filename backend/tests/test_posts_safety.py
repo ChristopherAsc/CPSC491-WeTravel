@@ -278,3 +278,70 @@ def test_get_safety_reports_unknown_type(client):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+# =========================================================
+# Additional Input Validation Tests
+# =========================================================
+
+
+def test_post_whitespace_only_caption(client, auth_headers, post_data):
+    post_data["caption"] = "   "
+
+    response = client.post(
+        "/api/posts",
+        json=post_data,
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_safety_whitespace_only_type(client, auth_headers, safety_data):
+    safety_data["report_type"] = "   "
+
+    response = client.post(
+        "/api/safety-reports",
+        json=safety_data,
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_post_whitespace_only_location(client, auth_headers, post_data):
+    post_data["location"]["name"] = "   "
+
+    response = client.post(
+        "/api/posts",
+        json=post_data,
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_post_caption_trimmed(client, auth_headers, post_data):
+    post_data["caption"] = "  Exploring Yosemite!  "
+
+    response = client.post(
+        "/api/posts",
+        json=post_data,
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["caption"] == "Exploring Yosemite!"
+
+
+def test_safety_report_type_trimmed(client, auth_headers, safety_data):
+    safety_data["report_type"] = "  theft  "
+
+    response = client.post(
+        "/api/safety-reports",
+        json=safety_data,
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["report_type"] == "theft"
