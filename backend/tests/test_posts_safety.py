@@ -221,3 +221,60 @@ def test_safety_report_invalid_location(client, auth_headers, safety_data):
     )
 
     assert response.status_code == 422
+
+
+# =========================================================
+# Safety Report Filtering Tests
+# =========================================================
+
+
+def test_get_safety_reports_without_filter(client, auth_headers, safety_data):
+    response = client.post(
+        "/api/safety-reports",
+        json=safety_data,
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+
+    response = client.get("/api/safety-reports")
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+
+
+def test_get_safety_reports_filtered_by_type(client, auth_headers, safety_data):
+    # Create a theft report.
+    safety_data["report_type"] = "theft"
+
+    response = client.post(
+        "/api/safety-reports",
+        json=safety_data,
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+
+    # Create a different report type.
+    safety_data["report_type"] = "harassment"
+
+    response = client.post(
+        "/api/safety-reports",
+        json=safety_data,
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+
+    # Request only theft reports.
+    response = client.get("/api/safety-reports?report_type=theft")
+
+    assert response.status_code == 200
+
+    reports = response.json()
+    assert len(reports) >= 1
+    assert all(report["report_type"] == "theft" for report in reports)
+
+
+def test_get_safety_reports_unknown_type(client):
+    response = client.get("/api/safety-reports?report_type=nonexistent-type-xyz")
+
+    assert response.status_code == 200
+    assert response.json() == []
