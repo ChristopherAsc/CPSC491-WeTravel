@@ -183,3 +183,25 @@ require production database access or real JWT secrets.
 
 See [`backend/tests/README.md`](backend/tests/README.md) for details
 on the backend test structure.
+
+### Midterm Smoke Test Suite
+
+A shallow, repeatable pass across the app's most critical workflows
+(Authentication, Feed, Create Post, Map, Safety, plus representative
+and invalid API requests) — meant to catch a critical failure before
+the midterm demo, not to exercise every edge case. Both halves run
+automatically in CI (see `.github/workflows/ci.yml`) as part of the
+normal test steps above, so a failing smoke test fails the build.
+
+Run only the smoke suite:
+
+```bash
+# Backend (from backend/)
+uv run pytest -m smoke -v
+
+# Frontend (from the repo root)
+npm run test:smoke
+```
+
+See `QA standard.md`'s "Midterm Smoke Test Suite (Sprint 3)" section
+for the requirement-to-test mapping.
