@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes } from "react-router-dom"
 
 import { loginUser, getPosts } from "@/api_configs"
 import App from "@/App"
@@ -17,7 +17,10 @@ import Feed from "@/pages/Feed"
 import CreatePost from "@/pages/CreatePost"
 import MapPage from "@/pages/MapPage"
 
-const { loginMock } = vi.hoisted(() => ({ loginMock: vi.fn() }))
+const { loginMock, useAuthMock } = vi.hoisted(() => ({
+  loginMock: vi.fn(),
+  useAuthMock: vi.fn(),
+}))
 
 vi.mock("@/api_configs", () => ({
   loginUser: vi.fn(),
@@ -26,7 +29,7 @@ vi.mock("@/api_configs", () => ({
 }))
 
 vi.mock("@/auth/useAuth", () => ({
-  useAuth: () => ({ login: loginMock, user: null }),
+  useAuth: useAuthMock,
 }))
 
 vi.mock("mapbox-gl", () => ({
@@ -39,9 +42,19 @@ vi.mock("mapbox-gl", () => ({
   },
 }))
 
+// Signed out by default; a test overrides isAuthenticated to simulate a signed-in user
+const signedOut = {
+  login: loginMock,
+  logout: vi.fn(),
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
+  useAuthMock.mockReturnValue(signedOut)
   vi.spyOn(console, "error").mockImplementation(() => {})
 })
 
@@ -77,7 +90,15 @@ describe("Smoke: Authentication", () => {
     })
     loginMock.mockResolvedValue(undefined)
 
-    render(<Login />)
+    // Login redirects after a successful login, so it needs a router
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/feed" element={<p>Feed page</p>} />
+        </Routes>
+      </MemoryRouter>
+    )
 
     fireEvent.change(screen.getByLabelText("Username"), {
       target: { value: "smoke_user" },
@@ -87,7 +108,8 @@ describe("Smoke: Authentication", () => {
     })
     fireEvent.click(screen.getByRole("button", { name: "Login" }))
 
-    expect(await screen.findByText("Logged in as smoke_user")).toBeInTheDocument()
+    expect(await screen.findByText("Feed page")).toBeInTheDocument()
+    expect(loginMock).toHaveBeenCalledWith("smoke-token")
   })
 })
 
@@ -116,7 +138,7 @@ describe("Smoke: Feed", () => {
 
 describe("Smoke: Create Post", () => {
   it("renders the create post form for a signed-in user", () => {
-    localStorage.setItem("access_token", "smoke-token")
+    useAuthMock.mockReturnValue({ ...signedOut, isAuthenticated: true })
 
     render(
       <MemoryRouter>
