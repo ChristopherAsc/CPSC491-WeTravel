@@ -1,14 +1,23 @@
 import { useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { loginUser } from "@/api_configs"
 import { useAuth } from "@/auth/useAuth"
 
+type LocationState = { from?: { pathname?: string } } | null
+
 function Login() {
   const { login, user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState("")
+
+  // ProtectedRoute remembers the page the user was trying to open
+  const redirectTo =
+    (location.state as LocationState)?.from?.pathname ?? "/feed"
 
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -22,7 +31,7 @@ function Login() {
       // Store the JWT and load the current user into the shared auth state
       await login(loginData.access_token)
 
-      setMessage(`Logged in as ${username}`)
+      navigate(redirectTo, { replace: true })
     } catch (error) {
       console.error("Login failed:", error)
 
@@ -38,7 +47,6 @@ function Login() {
     <div>
       <h1>Login</h1>
 
-      {/* Visible proof that the session survives a refresh (until the Navbar shows it) */}
       {user && <p>Currently logged in as {user.username}</p>}
 
       <form onSubmit={handleSubmit}>

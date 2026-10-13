@@ -1,11 +1,16 @@
-import { NavLink } from "react-router-dom"
+import { NavLink, useNavigate } from "react-router-dom"
 import {
   House,
   Map,
   Plus,
   CalendarDays,
   User,
+  LogIn,
+  LogOut,
+  UserPlus,
 } from "lucide-react"
+
+import { useAuth } from "@/auth/useAuth"
 
 const navItems = [
   {
@@ -35,9 +40,72 @@ const navItems = [
   },
 ]
 
+const authLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    isActive
+      ? "bg-[#0D3B66] text-white"
+      : "text-gray-600 hover:bg-gray-100 hover:text-[#0D3B66]"
+  }`
+
+// Login/Register for guests, username and Logout for signed-in users
+function AuthControls() {
+  const { isAuthenticated, isLoading, user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate("/login")
+  }
+
+  // Hide the controls while a saved session is being verified, to avoid flicker
+  if (isLoading) {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <NavLink to="/login" className={authLinkClass}>
+          <LogIn size={18} />
+          Login
+        </NavLink>
+
+        <NavLink to="/register" className={authLinkClass}>
+          <UserPlus size={18} />
+          Register
+        </NavLink>
+      </>
+    )
+  }
+
+  return (
+    <>
+      {user && (
+        <span className="px-2 text-sm font-medium text-gray-700">
+          {user.username}
+        </span>
+      )}
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-[#0D3B66]"
+      >
+        <LogOut size={18} />
+        Logout
+      </button>
+    </>
+  )
+}
+
 function Navbar() {
   return (
     <>
+      {/* Mobile top strip: the bottom bar has no room for auth controls */}
+      <div className="flex items-center justify-end gap-1 border-b bg-white px-3 py-1 md:hidden">
+        <AuthControls />
+      </div>
+
       {/* Desktop Navbar */}
       <nav className="sticky top-0 z-50 hidden border-b bg-white md:block">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -72,6 +140,11 @@ function Navbar() {
                 </NavLink>
               )
             })}
+
+            {/* Auth */}
+            <div className="ml-2 flex items-center gap-2 border-l pl-4">
+              <AuthControls />
+            </div>
           </div>
         </div>
       </nav>
