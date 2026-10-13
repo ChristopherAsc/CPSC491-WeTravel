@@ -98,7 +98,7 @@ def get_current_user(
 
         user_id = int(user_id)
 
-    except (jwt.InvalidTokenError, ValueError, TypeError):
+    except jwt.InvalidTokenError, ValueError, TypeError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
