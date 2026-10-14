@@ -530,18 +530,22 @@ def get_itinerary(
     response_model=list[SafetyReportResponse],
 )
 def get_safety_reports(
+    report_type: str | None = None,
     db: Session = Depends(get_db),
 ):
-    """Retrieve safety reports from PostgreSQL."""
+    """Retrieve safety reports, optionally filtered by report type."""
 
-    return db.scalars(
-        select(SafetyReport)
-        .order_by(
-            SafetyReport.created_at.desc(),
-            SafetyReport.report_id.desc(),
-        )
-        .limit(100)
-    ).all()
+    query = select(SafetyReport)
+
+    if report_type is not None:
+        query = query.where(SafetyReport.report_type == report_type)
+
+    query = query.order_by(
+        SafetyReport.created_at.desc(),
+        SafetyReport.report_id.desc(),
+    ).limit(100)
+
+    return db.scalars(query).all()
 
 
 @router.post(

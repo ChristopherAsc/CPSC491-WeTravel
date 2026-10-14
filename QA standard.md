@@ -71,6 +71,35 @@ CI's `qa-check` job (`scripts/verify_traceability.py`) parses this table on ever
 | SAFE-03 | Reports persist and can be retrieved for their location | Manual | MANUAL-SAFE-03 — submit a report, then confirm it can be retrieved for that location | QA checklist (WT-3.3), exercised against backend/routes.py get_safety_reports | Not Covered |
 | SAFE-04 | Reports show up on the map in the right spot | Manual | MANUAL-SAFE-04 — submit a report and confirm a marker appears at the correct map location | QA checklist (WT-3.3), exercised against src/components/map/MarkerLayer.tsx | Not Covered |
 
+### Midterm Smoke Test Suite (Sprint 3)
+
+A repeatable, shallow pass across the critical workflows needed for the
+midterm demo. Automated rows run in CI on every push/PR as part of the
+normal `pytest`/`vitest` run (no exhaustive edge cases - see the
+Authentication/Feed/Map/Create Post/Safety sections above for that).
+
+The rows below use the matrix's Python-oriented Automated-row format
+(a `test_*` function name checked against `backend/tests/test_smoke.py`).
+The frontend half of the suite, `src/test/smoke.test.tsx`, is automated
+the same way via Vitest and runs in CI through `npm run test` (or in
+isolation via `npm run test:smoke`) — it isn't restated as its own rows
+here since the checker's function-existence check is Python-specific.
+It covers: the application shell loading with critical navigation
+rendering (`Smoke: Application`), plus the Authentication, Feed, Create
+Post, Map, and Safety UI checks referenced in the Test Location column
+below and in the sections above.
+
+| Requirement ID | Acceptance Criterion | Test Type | Test ID | Test Location | Status |
+|---|---|---|---|---|---|
+| SMOKE-01 | Authentication success can be verified | Automated | test_authentication_register_login_and_profile | backend/tests/test_smoke.py | Covered |
+| SMOKE-02 | Feed loading can be verified | Automated | test_feed_loads_existing_posts | backend/tests/test_smoke.py | Covered |
+| SMOKE-03 | Create Post basic functionality can be verified | Automated + Manual | test_create_post_and_retrieve_it; MANUAL-SMOKE-03 — in the running app, confirm the Create Post form renders and a signed-out user is prompted to log in | backend/tests/test_smoke.py (API create+retrieve), src/test/smoke.test.tsx (form renders); QA checklist (WT-3.3) for the live UI, exercised against src/pages/CreatePost.tsx | Covered |
+| SMOKE-04 | Map basic functionality can be verified | Automated + Manual | test_map_can_load_location_and_its_posts; MANUAL-SMOKE-04 — open the map in the running app and confirm it loads without a critical failure | backend/tests/test_smoke.py (location/API), src/test/smoke.test.tsx (page renders without throwing); QA checklist (WT-3.3) for the live UI, exercised against src/pages/MapPage.tsx | Covered |
+| SMOKE-05 | Safety feature availability can be verified | Automated | test_safety_reports_are_accessible_and_creatable | backend/tests/test_smoke.py (API), src/test/smoke.test.tsx (form availability) | Covered |
+| SMOKE-06 | Representative API endpoints are checked | Automated | test_representative_api_endpoints_respond_cleanly | backend/tests/test_smoke.py | Covered |
+| SMOKE-07 | Failed checks clearly identify the affected feature | Manual | MANUAL-SMOKE-07 — review that each smoke test's name and assertion message name the feature it covers (e.g. `[Map] ...`) | backend/tests/test_smoke.py | Covered |
+| SMOKE-08 | Invalid API requests (bad payload, bad credentials) are rejected cleanly instead of crashing | Automated | test_invalid_requests_are_rejected_cleanly | backend/tests/test_smoke.py | Covered |
+
 ### Process / Documentation
 
 These acceptance criteria verify the QA process itself rather than app behavior, so they're validated by document review instead of a test run.
