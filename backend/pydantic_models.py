@@ -1,13 +1,23 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class Location(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
     longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Location name cannot be blank")
+
+        return value
 
 
 class LocationResponse(BaseModel):
@@ -23,6 +33,16 @@ class PostCreate(BaseModel):
     caption: str = Field(min_length=1, max_length=2200)
     media_url: Optional[str] = Field(default=None, max_length=2048)
     location: Location
+
+    @field_validator("caption")
+    @classmethod
+    def validate_caption(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Caption cannot be blank")
+
+        return value
 
 
 class PostResponse(BaseModel):
@@ -57,6 +77,16 @@ class SafetyReportCreate(BaseModel):
     report_type: str = Field(min_length=1, max_length=100)
     location: Location
     description: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("report_type")
+    @classmethod
+    def validate_report_type(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Report type cannot be blank")
+
+        return value
 
 
 class SafetyReportResponse(BaseModel):

@@ -45,6 +45,19 @@ The current test suite verifies:
 11. Testing for password length
 
 
+### `test_smoke.py`
+
+The Sprint 3 Midterm Smoke Test Suite. A shallow, repeatable pass across
+the app's most critical workflows — Authentication, Feed, Create Post,
+Map, Safety, and representative API endpoints — meant to catch a
+critical failure before/during the midterm demo, not to exercise every
+edge case (that's what `test_auth.py` and `test_posts_safety.py` are
+for). Every test is tagged with `@pytest.mark.smoke` and its assertion
+messages are prefixed with the affected feature (e.g. `[Map] ...`) so a
+failure is immediately traceable. See `QA standard.md`'s
+"Midterm Smoke Test Suite (Sprint 3)" section for the requirement
+mapping.
+
 ## Running the Tests
 
 From the `backend` directory, run all tests:
@@ -60,6 +73,12 @@ uv run pytest tests/test_health.py -v
 uv run pytest tests/test_auth.py -v
 ```
 
+Run only the midterm smoke suite:
+
+```bash
+uv run pytest -m smoke -v
+```
+
 ## Directory Structure
 
 ```
@@ -69,5 +88,7 @@ backend/
     ├── __init__.py
     ├── conftest.py
     ├── test_health.py
-    └── test_auth.py
+    ├── test_auth.py
+    ├── test_posts_safety.py
+    └── test_smoke.py
 ```

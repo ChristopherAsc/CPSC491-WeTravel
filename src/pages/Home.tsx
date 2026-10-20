@@ -16,7 +16,7 @@ function Home() {
         console.error(error)
         setStatus("Backend connection failed")
       })
-  }, [])
+  }, [status])
   return (
     <div>
       <h1>Home Landing Page</h1>

@@ -42,4 +42,5 @@ select = [
 pythonpath = ["."]
 markers = [
     "requirement(id): links a test to a Requirement ID in 'QA standard.md'",
+    "smoke: part of the midterm smoke test suite (critical workflows, not exhaustive coverage)",
 ]
