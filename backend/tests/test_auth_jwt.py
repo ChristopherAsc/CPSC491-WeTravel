@@ -70,6 +70,13 @@ def build_bad_token(kind: str, user_id: int) -> str:
         del claims["sub"]
         return jwt.encode(claims, SECRET_KEY, algorithm=ALGORITHM)
 
+
+    #For C03 SOC2 Compliance Testing
+    if kind == "missing_expiration":
+        del claims["exp"]
+        return jwt.encode(claims, SECRET_KEY, algorithm=ALGORITHM)
+    #
+
     if kind == "unsigned":
         return jwt.encode(claims, key=None, algorithm="none")
 
@@ -152,9 +159,10 @@ def test_protected_endpoints_reject_requests_without_a_token(client, method, pat
 
 
 @pytest.mark.requirement("AUTH-05")
+#missing expiration added for SOC2 - Randoll
 @pytest.mark.parametrize(
     "kind",
-    ["malformed", "wrong_signature", "expired", "missing_subject", "unsigned"],
+    ["malformed", "wrong_signature", "expired", "missing_subject","missing_expiration", "unsigned"],
 )
 def test_invalid_tokens_are_rejected(client, seeded_user, kind):
     token = build_bad_token(kind, seeded_user.user_id)
