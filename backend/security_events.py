@@ -177,6 +177,38 @@ def build_failed_login_event(
     )
 
 
+def create_security_event(
+    *,
+    event_name: str,
+    outcome: str,
+    request_id: str,
+    actor_key: str,
+    now: datetime | None = None,
+    source: str = "synthetic",
+) -> dict[str, str]:
+    """Create a validated event from an already pseudonymous actor_key.
+
+    Intended for synthetic tests and the detector. Callers must never pass a
+    raw username, email, password, or token as actor_key.
+    """
+
+    event_time = now if now is not None else datetime.now(timezone.utc)
+
+    event = SecurityEvent(
+        timestamp=format_utc_timestamp(event_time),
+        event_type=event_name,
+        outcome=outcome,
+        request_id=request_id,
+        actor_key=actor_key,
+        source=source,
+    )
+
+    event_data = event.to_dict()
+    validate_event(event_data)
+
+    return event_data
+
+
 def emit_security_event(event: SecurityEvent) -> dict[str, str]:
     """Validate and write one structured JSON event to the security logger."""
 
