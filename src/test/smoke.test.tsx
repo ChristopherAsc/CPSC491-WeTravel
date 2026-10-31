@@ -31,10 +31,10 @@ vi.mock("@/auth/useAuth", () => ({
 
 vi.mock("mapbox-gl", () => ({
   default: {
-    Map: vi.fn().mockImplementation(() => ({
-      on: vi.fn(),
-      remove: vi.fn(),
-    })),
+    Map: class MockMap {
+      on = vi.fn()
+      remove = vi.fn()
+    },
     accessToken: "",
   },
 }))
