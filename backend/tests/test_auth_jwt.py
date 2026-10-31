@@ -5,6 +5,9 @@ contents, the error behaviour for bad tokens, that every protected endpoint
 rejects anonymous requests, and that a token identifies the right user.
 """
 
+# JWT Tampering Testers
+import base64
+import json
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -176,6 +179,47 @@ def test_invalid_tokens_are_rejected(client, seeded_user, kind):
     response = client.get("/api/users/me", headers=auth_header(token))
 
     assert response.status_code == 401
+
+
+# JWT Tampering Test
+@pytest.mark.requirement("AUTH-05")
+def test_tampered_jwt_payload_is_rejected(client, seeded_user):
+    """C03: Reject a JWT whose payload was modified without resigning."""
+
+    token = create_access_token(
+        seeded_user.user_id,
+        seeded_user.username,
+    )
+
+    # Separate the JWT into its three components.
+    header, payload, signature = token.split(".")
+
+    # Decode the payload without verifying its signature.
+    decoded_payload = json.loads(
+        base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
+    )
+
+    # Simulate unauthorized modification of the token.
+    decoded_payload["sub"] = "999999"
+
+    # Re-encode the modified payload without generating a new signature.
+    modified_payload = (
+        base64.urlsafe_b64encode(json.dumps(decoded_payload).encode())
+        .rstrip(b"=")
+        .decode()
+    )
+
+    tampered_token = f"{header}.{modified_payload}.{signature}"
+
+    # Attempt to access a protected API endpoint.
+    response = client.get(
+        "/api/users/me",
+        headers=auth_header(tampered_token),
+    )
+
+    assert response.status_code == 401
+    assert "username" not in response.json()
+    assert "email" not in response.json()
 
 
 @pytest.mark.requirement("AUTH-05")
