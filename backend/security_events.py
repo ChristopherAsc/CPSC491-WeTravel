@@ -33,6 +33,10 @@ EVENT_LOGIN_FAILED = "auth.login_failed"
 OUTCOME_FAILURE = "failure"
 REASON_INVALID_CREDENTIALS = "invalid_credentials"
 
+EVENT_THRESHOLD_EXCEEDED = "auth.failed_login_threshold_exceeded"
+OUTCOME_ALERT = "alert"
+REASON_THRESHOLD_REACHED = "failed_login_threshold_reached"
+
 ALLOWED_FIELDS = (
     "timestamp",
     "event_type",
@@ -41,6 +45,8 @@ ALLOWED_FIELDS = (
     "request_id",
     "actor_key",
     "source",
+    "failure_count",
+    "window_seconds",
 )
 
 REQUIRED_FIELDS = (
@@ -52,6 +58,8 @@ REQUIRED_FIELDS = (
 )
 
 HMAC_KEY_ENV = "SECURITY_LOG_HMAC_KEY"
+
+EventData = dict[str, str | int]
 
 security_logger = logging.getLogger(SECURITY_LOGGER_NAME)
 
@@ -109,8 +117,10 @@ class SecurityEvent:
     actor_key: str
     reason: str | None = None
     source: str = "api"
+    failure_count: int | None = None
+    window_seconds: int | None = None
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> EventData:
         """Return only allowlisted, non-empty fields in a stable order."""
 
         raw_data = asdict(self)
@@ -185,7 +195,7 @@ def create_security_event(
     actor_key: str,
     now: datetime | None = None,
     source: str = "synthetic",
-) -> dict[str, str]:
+) -> EventData:
     """Create a validated event from an already pseudonymous actor_key.
 
     Intended for synthetic tests and the detector. Callers must never pass a
@@ -209,7 +219,7 @@ def create_security_event(
     return event_data
 
 
-def emit_security_event(event: SecurityEvent) -> dict[str, str]:
+def emit_security_event(event: SecurityEvent) -> EventData:
     """Validate and write one structured JSON event to the security logger."""
 
     event_data = event.to_dict()
@@ -220,10 +230,46 @@ def emit_security_event(event: SecurityEvent) -> dict[str, str]:
     return event_data
 
 
+def emit_threshold_alert(
+    actor_key: str,
+    failure_count: int,
+    window_seconds: int = 300,
+    request_id: str | None = None,
+    now: datetime | None = None,
+    source: str = "detector",
+) -> EventData:
+    """Write one WARNING event when the failed-login threshold is reached.
+
+    actor_key must already be pseudonymous (from make_actor_key or a
+    synthetic test identifier). This is the reviewable alert record.
+    """
+
+    event_time = now if now is not None else datetime.now(timezone.utc)
+
+    event = SecurityEvent(
+        timestamp=format_utc_timestamp(event_time),
+        event_type=EVENT_THRESHOLD_EXCEEDED,
+        outcome=OUTCOME_ALERT,
+        reason=REASON_THRESHOLD_REACHED,
+        request_id=request_id or f"alert-{uuid.uuid4().hex[:12]}",
+        actor_key=actor_key,
+        source=source,
+        failure_count=failure_count,
+        window_seconds=window_seconds,
+    )
+
+    event_data = event.to_dict()
+    validate_event(event_data)
+
+    security_logger.warning(json.dumps(event_data, sort_keys=True))
+
+    return event_data
+
+
 def log_failed_login(
     username: str,
     request_id: str | None = None,
-) -> dict[str, str] | None:
+) -> EventData | None:
     """Record a failed login without ever interrupting the login flow.
 
     Returns the emitted event, or None if logging failed.
