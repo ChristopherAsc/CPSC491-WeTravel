@@ -1,8 +1,8 @@
 import os
 from datetime import datetime, timedelta, timezone
 
-import jwt
 import httpx
+import jwt
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
