@@ -1,8 +1,9 @@
 import { Routes, Route } from "react-router-dom";
 
-import Navbar from "@/components/layout/Navbar";
-import MainContent from "@/components/layout/MainContent";
-import PageContainer from "@/components/layout/PageContainer";
+import Navbar from "@/components/layout/Navbar"
+import MainContent from "@/components/layout/MainContent"
+import PageContainer from "@/components/layout/PageContainer"
+import ProtectedRoute from "@/auth/ProtectedRoute"
 
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
@@ -27,10 +28,10 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/feed" element={<Feed />} />
+              <Route path="/map" element={<MapPage />} />
 
               <Route element={<ProtectedRoute />}>
-                <Route path="/feed" element={<Feed />} />
-                <Route path="/map" element={<MapPage />} />
                 <Route path="/create-post" element={<CreatePost />} />
                 <Route path="/itinerary" element={<Itinerary />} />
                 <Route path="/profile" element={<Profile />} />

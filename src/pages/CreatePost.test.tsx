@@ -3,6 +3,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router-dom"
 import CreatePost from "./CreatePost"
 
+const { useAuthMock } = vi.hoisted(() => ({ useAuthMock: vi.fn() }))
+
+vi.mock("@/auth/useAuth", () => ({ useAuth: useAuthMock }))
+
+const signIn = () => useAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false })
+
 const renderPage = () => render(<MemoryRouter><CreatePost /></MemoryRouter>)
 const fillRequiredFields = () => {
   fireEvent.change(screen.getByLabelText(/caption/i), { target: { value: "Wonderful views in Yosemite" } })
@@ -12,6 +18,8 @@ const fillRequiredFields = () => {
 beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
+  // Signed out by default; tests call signIn() to simulate a logged-in user
+  useAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false })
   vi.stubGlobal("URL", {
     ...URL,
     createObjectURL: vi.fn(() => "blob:mock-photo"),
@@ -34,8 +42,15 @@ describe("Create Post", () => {
     expect(screen.getByRole("button", { name: /publish post/i })).toBeDisabled()
   })
 
+  it("keeps publishing disabled while the saved session is being verified", () => {
+    useAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: true })
+    renderPage()
+    expect(screen.queryByText(/you must be signed in/i)).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /publish post/i })).toBeDisabled()
+  })
+
   it("validates an empty caption and location", async () => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
     renderPage()
     fireEvent.click(screen.getByRole("button", { name: /publish post/i }))
     expect(await screen.findByText("Caption is required")).toBeInTheDocument()
@@ -43,7 +58,7 @@ describe("Create Post", () => {
   })
 
   it("shows an image preview and allows removing it", async () => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
     renderPage()
     const image = new File(["image bytes"], "vacation.png", { type: "image/png" })
     fireEvent.change(screen.getByLabelText("Upload travel photo"), { target: { files: [image] } })
@@ -54,7 +69,7 @@ describe("Create Post", () => {
   })
 
   it("rejects unsupported image types", async () => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
     renderPage()
     const file = new File(["text"], "notes.txt", { type: "text/plain" })
     fireEvent.change(screen.getByLabelText("Upload travel photo"), { target: { files: [file] } })
@@ -63,7 +78,7 @@ describe("Create Post", () => {
   })
 
   it("blocks publishing until location lookup is connected", async () => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
     renderPage()
     fillRequiredFields()
     fireEvent.click(screen.getByRole("button", { name: /publish post/i }))
