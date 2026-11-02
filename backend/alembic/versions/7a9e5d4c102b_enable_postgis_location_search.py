@@ -3,6 +3,7 @@
 Revision ID: 7a9e5d4c102b
 Revises: ff6b866c8309
 """
+
 from alembic import op
 
 revision = "7a9e5d4c102b"

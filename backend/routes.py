@@ -99,7 +99,7 @@ def get_current_user(
 
         user_id = int(user_id)
 
-    except (jwt.InvalidTokenError, ValueError, TypeError):
+    except jwt.InvalidTokenError, ValueError, TypeError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -414,7 +414,9 @@ def list_locations(
     db: Session = Depends(get_db),
 ):
     """Return existing WeTravel locations, not Mapbox search results."""
-    return db.scalars(select(Location).order_by(Location.location_id).limit(limit)).all()
+    return db.scalars(
+        select(Location).order_by(Location.location_id).limit(limit)
+    ).all()
 
 
 @router.get("/locations/nearby", response_model=list[LocationResponse])
@@ -447,10 +449,19 @@ def nearby_locations(
         ), location_id
         LIMIT :limit
     """)
-    rows = db.execute(query, {
-        "longitude": longitude, "latitude": latitude,
-        "radius_m": radius_m, "limit": limit,
-    }).mappings().all()
+    rows = (
+        db.execute(
+            query,
+            {
+                "longitude": longitude,
+                "latitude": latitude,
+                "radius_m": radius_m,
+                "limit": limit,
+            },
+        )
+        .mappings()
+        .all()
+    )
     return [dict(row) for row in rows]
 
 
@@ -474,7 +485,9 @@ def _mapbox_request(path: str, params: dict) -> dict:
             return response.json()
     except (httpx.HTTPError, ValueError) as exc:
         # Do not surface upstream error bodies or token-bearing URLs to clients.
-        raise HTTPException(status_code=502, detail="Mapbox Search unavailable") from exc
+        raise HTTPException(
+            status_code=502, detail="Mapbox Search unavailable"
+        ) from exc
 
 
 @router.get("/locations/search/suggest")
@@ -502,7 +515,6 @@ def retrieve_place(
     if not mapbox_id or "/" in mapbox_id or len(mapbox_id) > 256:
         raise HTTPException(status_code=422, detail="Invalid Mapbox place ID")
     return _mapbox_request(f"retrieve/{mapbox_id}", {"session_token": session_token})
-
 
 
 @router.get(

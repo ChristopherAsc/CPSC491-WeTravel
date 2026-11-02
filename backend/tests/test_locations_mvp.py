@@ -1,4 +1,5 @@
 """Sprint 4 Location MVP API tests; Mapbox HTTP requests are mocked."""
+
 import httpx
 from models import Location
 
@@ -33,13 +34,13 @@ def test_suggest_uses_mapbox_without_storing(monkeypatch, client, db):
 
     def fake_get(self, url, *args, **kwargs):
         # Only mock outgoing Mapbox API requests
-        if str(url).startswith(
-            "https://api.mapbox.com/search/searchbox/v1/"
-        ):
-            observed.update({
-                "url": url,
-                "params": kwargs.get("params"),
-            })
+        if str(url).startswith("https://api.mapbox.com/search/searchbox/v1/"):
+            observed.update(
+                {
+                    "url": url,
+                    "params": kwargs.get("params"),
+                }
+            )
 
             return httpx.Response(
                 200,
@@ -79,12 +80,8 @@ def test_retrieve_mapbox(monkeypatch, client):
     original_get = httpx.Client.get
 
     def fake_get(self, url, *args, **kwargs):
-        if str(url).startswith(
-            "https://api.mapbox.com/search/searchbox/v1/"
-        ):
-            assert str(url).endswith(
-                "/retrieve/mapbox-test-id"
-            )
+        if str(url).startswith("https://api.mapbox.com/search/searchbox/v1/"):
+            assert str(url).endswith("/retrieve/mapbox-test-id")
 
             return httpx.Response(
                 200,
