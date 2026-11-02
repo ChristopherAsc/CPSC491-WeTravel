@@ -1,125 +1,108 @@
 # WeTravel
 
-A collaborative travel planning and safety-sharing web application. WeTravel is a travel-focused social platform designed to combine travel discovery, social content, maps, and trip planning into one application.
+A collaborative travel planning and safety-sharing web application.
 
-The goal of WeTravel is to make it easier for users to discover destinations, view travel experiences shared by other users, explore locations on an interactive map, and organize destinations into itineraries.
+WeTravel is a travel-focused social platform that combines travel discovery, social content, interactive maps, safety reporting, and trip planning.
 
-**Repository**: https://github.com/ChristopherAsc/CPSC491-WeTravel
+**Repository:** https://github.com/ChristopherAsc/CPSC491-WeTravel
 
 ---
 
 ## Project Overview
 
-**WeTravel** empowers travelers to:
-- **Create and share itineraries** with destinations, activities, and timing
-- **Explore a feed** of posts from other travelers (destinations, photos, tips)
-- **Interact with maps** to visualize travel locations and discover nearby places
-- **Report and view safety information** for travel regions
-- **Save and organize** favorite posts and itineraries
+WeTravel allows users to:
+
+- Register, log in, and log out securely.
+- Explore travel posts shared by other users.
+- Create travel posts with location and media information.
+- View travel destinations on an interactive map.
+- Create and organize travel itineraries.
+- Submit and view safety reports.
+- Access personal profile information.
+
+Some MVP features are still undergoing integration and manual acceptance testing.
 
 ---
 
 ## Technology Stack
 
 ### Frontend
-- React 18 + TypeScript + Vite
+- React + TypeScript + Vite
 - Tailwind CSS
-- shadcn/ui components
-- TanStack Query for data fetching
-- React Router for routing
-- React Hook Form + Zod for forms
-- Mapbox GL JS for maps
+- React Router
+- Mapbox GL JS
 - Lucide React Icons
-- Vitest + React Testing Library for testing
+- Vitest + React Testing Library
 
 ### Backend
 - FastAPI (Python)
-- SQLAlchemy 2.0 ORM
-- PostgreSQL database
-- PostGIS for geospatial queries
-- JWT authentication
-- Pydantic for validation
-- pytest for testing
+- SQLAlchemy
+- PostgreSQL
+- JWT Authentication
+- Pydantic
+- pytest
 
-### Infrastructure
-- GitHub for version control
-- GitHub Actions for CI/CD
-- Vercel for frontend hosting
-- Render for backend hosting
-- Supabase / Neon for managed PostgreSQL
-- Cloudinary for image hosting
-- Mapbox for map APIs
+### Development Tools
+- Git and GitHub
+- GitHub Actions CI/CD
+- Ruff and Black for backend code quality
+- ESLint and Prettier for frontend code quality
 
 ---
 
 ## Current Development
 
-This branch contains the initial frontend shell for the WeTravel application.
+The WeTravel MVP includes the following application features.
 
-### Completed
+| Feature | Current Status |
+|---|---|
+| Registration and Login | Implemented and tested |
+| Logout | Added to desktop and mobile navigation |
+| Protected Routes | Implemented |
+| Travel Feed | Automated tests passing |
+| Create Post | Backend tests passing; frontend publishing requires verification |
+| Post Detail | Backend retrieval tested |
+| Interactive Map | Smoke tests passing |
+| Itinerary | Frontend automated tests passing |
+| Safety Reporting | Backend automated tests passing |
+| User Profile | Frontend automated tests passing |
 
-- React + TypeScript + Vite project setup
-- Tailwind CSS configuration
-- shadcn/ui configuration
-- React Router setup
-- Global application layout
-- Responsive navigation
-- Initial application routes
-- Reusable layout components
+---
 
-### Current Routes
+## Application Routes
 
 | Route | Page |
-| --- | --- |
+|---|---|
 | `/` | Home |
 | `/login` | Login |
 | `/register` | Register |
 | `/feed` | Travel Feed |
-| `/map` | Map |
+| `/map` | Interactive Map and Safety |
 | `/create-post` | Create Post |
 | `/itinerary` | Itinerary |
-| `/profile` | Profile |
+| `/profile` | User Profile |
 
-### Frontend Project Structure
-
-```text
-src/
-├── assets/
-├── components/
-│   ├── layout/
-│   │   ├── MainContent.tsx
-│   │   ├── Navbar.tsx
-│   │   └── PageContainer.tsx
-│   └── ui/
-├── lib/
-├── pages/
-│   ├── CreatePost.tsx
-│   ├── Feed.tsx
-│   ├── Home.tsx
-│   ├── Itinerary.tsx
-│   ├── Login.tsx
-│   ├── Map.tsx
-│   ├── Profile.tsx
-│   └── Register.tsx
-├── App.tsx
-├── index.css
-└── main.tsx
-```
+Feed, Map, Create Post, Itinerary, and Profile are protected routes that require authentication.
 
 ---
 
 ## Prerequisites
 
-### Required
-- **Node.js** v18+ ([nodejs.org](https://nodejs.org))
-- **Python** 3.11+ ([python.org](https://www.python.org))
-- **PostgreSQL** 15+ (or Docker Desktop for Postgres container)
-- **Git** ([git-scm.com](https://git-scm.com))
+Before running WeTravel locally, install:
 
-### Verify Installation
+- Node.js and npm
+- Python 3.11+
+- uv (Python package manager)
+- PostgreSQL
+- Git
+
+Verify the installations:
+
 ```bash
 node --version
+npm --version
 python --version
+uv --version
 git --version
 ```
 
@@ -127,81 +110,218 @@ git --version
 
 ## Frontend Setup
 
-TBD
-
----
-
-## Backend Setup
-
-TBD
-
----
-
-## Database Setup
-
-TBD
-
----
-
-## Running Automated Tests
-
-### Frontend
-
-Install dependencies:
+From the project root, install dependencies:
 
 ```bash
 npm ci
 ```
 
-Run the frontend test suite:
+Start the frontend development server:
+
+```bash
+npm run dev
+```
+
+Open the local URL displayed in the terminal, typically:
+
+http://localhost:5173
+
+---
+
+## Backend Setup
+
+Install Python dependencies from the project root:
+
+```bash
+uv sync --dev
+```
+
+Create a `.env.local` file in the project root containing the required backend environment variables.
+
+Example configuration:
+
+```dotenv
+DATABASE_URL=postgresql://USERNAME:PASSWORD@localhost:5432/DATABASE_NAME
+SECRET_KEY=REPLACE_WITH_A_SECURE_RANDOM_VALUE
+```
+
+The exact authentication secret variable name should match the backend configuration.
+
+Do not commit `.env.local` or actual credentials to GitHub.
+
+Start the backend from the project root:
+
+```bash
+uv run --env-file .env.local uvicorn server:app --app-dir backend --reload
+```
+
+The backend runs at:
+
+http://127.0.0.1:8000
+
+API documentation is available at:
+
+http://127.0.0.1:8000/docs
+
+---
+
+## Database Setup
+
+WeTravel uses PostgreSQL for application data.
+
+Before starting the backend:
+
+1. Install and start PostgreSQL.
+2. Create a local development database.
+3. Configure `DATABASE_URL` in `.env.local`.
+4. Confirm the database connection is available.
+
+The database initialization procedure depends on the current backend configuration.
+
+---
+
+## Running Automated Tests
+
+### Frontend Tests
+
+Run all frontend tests:
 
 ```bash
 npm run test
 ```
 
-The frontend test suite uses [Vitest](https://vitest.dev/) and
-[React Testing Library](https://testing-library.com/react).
+Run a specific test file:
 
-### Backend
+```bash
+npm run test -- src/pages/Login.test.tsx --run
+```
 
-Install backend development dependencies:
+Run frontend smoke tests:
+
+```bash
+npm run test -- src/test/smoke.test.tsx --run
+```
+
+### Backend Tests
+
+From the project root:
 
 ```bash
 cd backend
-uv sync --dev
+uv run pytest tests/ -v
 ```
 
-Run the backend test suite:
+Run specific backend tests:
 
 ```bash
-uv run pytest
+uv run pytest tests/test_auth.py -v
+uv run pytest tests/test_posts_safety.py -v
+uv run pytest tests/test_auth_jwt.py -v
+uv run pytest tests/test_smoke.py -v
+uv run pytest tests/integration/test_integration.py -v
 ```
 
-Backend tests use `pytest` and FastAPI's `TestClient`. Tests use an
-isolated SQLite test database and test-only credentials — they don't
-require production database access or real JWT secrets.
+Backend automated tests use an isolated test database and test credentials.
 
-See [`backend/tests/README.md`](backend/tests/README.md) for details
-on the backend test structure.
+---
 
-### Midterm Smoke Test Suite
+## Code Quality Checks
 
-A shallow, repeatable pass across the app's most critical workflows
-(Authentication, Feed, Create Post, Map, Safety, plus representative
-and invalid API requests) — meant to catch a critical failure before
-the midterm demo, not to exercise every edge case. Both halves run
-automatically in CI (see `.github/workflows/ci.yml`) as part of the
-normal test steps above, so a failing smoke test fails the build.
+### Frontend
 
-Run only the smoke suite:
+Run ESLint:
 
 ```bash
-# Backend (from backend/)
-uv run pytest -m smoke -v
-
-# Frontend (from the repo root)
-npm run test:smoke
+npm run lint
 ```
 
-See `QA standard.md`'s "Midterm Smoke Test Suite (Sprint 3)" section
-for the requirement-to-test mapping.
+Check formatting:
+
+```bash
+npx prettier --check src/
+```
+
+Build the frontend:
+
+```bash
+npm run build
+```
+
+### Backend
+
+From the project root, run:
+
+```bash
+uv run ruff check .
+uv run black --check .
+```
+
+These checks help maintain consistent code quality before merging changes.
+
+---
+
+## Sprint 4 – MVP QA Review
+
+**Jira Ticket:** WT-22 – Feature MVP Acceptance Review
+
+Sprint 4 focuses on reviewing the completed MVP features, executing automated and manual tests, identifying defects, and preparing the application for Sprint 5 integration.
+
+### Automated Testing Results
+
+During the initial Sprint 4 QA review, 110 automated tests were executed across the frontend and backend.
+
+**Results:**
+- 110 tests passed in their latest executions.
+- 0 remaining automated test failures in the reviewed test files.
+- Frontend smoke test Mapbox mock issue identified and fixed.
+- Additional manual acceptance testing required.
+
+### Identified Improvements
+
+- Fixed the Mapbox mock used by frontend smoke tests.
+- Added a Logout button to desktop and mobile navigation.
+- Updated authentication and protected-route functionality through ongoing team development.
+
+### Remaining QA Work
+
+- Complete manual testing of all MVP features.
+- Verify Create Post publishing and persistence.
+- Review remaining functional acceptance criteria.
+- Document unresolved defects.
+- Prepare the final Sprint 4 MVP QA report.
+
+---
+
+## Git Workflow
+
+Development work should be completed on feature branches.
+
+Example:
+
+```bash
+git switch develop
+git pull origin develop
+git switch -c feature/my-feature
+```
+
+After implementing and testing changes:
+
+```bash
+git add .
+git commit -m "Description of changes"
+git push -u origin feature/my-feature
+```
+
+Create a pull request targeting `develop`.
+
+All changes should be reviewed and pass the required CI checks before merging.
+
+---
+
+## Project Status
+
+WeTravel is currently under active development.
+
+The MVP includes authentication, travel posts, interactive maps, itinerary planning, safety reporting, and user profiles.
+
+Automated testing and CI/CD are in place. Additional manual testing, integration improvements, and security assessments are ongoing as the project progresses toward Sprint 5.
