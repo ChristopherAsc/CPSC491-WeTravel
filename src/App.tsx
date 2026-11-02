@@ -14,8 +14,6 @@ import Itinerary from "@/pages/Itinerary";
 import Profile from "@/pages/Profile";
 import MapPage from "@/pages/MapPage";
 
-import ProtectedRoute from "@/auth/ProtectedRoute";
-
 function App() {
   return (
     <>
