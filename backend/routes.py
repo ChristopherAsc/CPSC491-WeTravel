@@ -479,6 +479,8 @@ def create_itinerary(
     new_itinerary = Itinerary(
         user_id=current_user.user_id,
         name=itinerary_data.name,
+        start_date=itinerary_data.start_date,
+        end_date=itinerary_data.end_date,
     )
 
     try:
