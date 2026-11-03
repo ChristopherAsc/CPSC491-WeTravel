@@ -154,3 +154,71 @@ def test_registration_login_and_protected_route_integration(client):
     assert user_data["user_id"] == registered_user_id
     assert user_data["username"] == registration_data["username"]
     assert user_data["email"] == registration_data["email"]
+
+
+def test_itinerary_create_and_retrieve_regression(client):
+    """
+    Sprint 4 MVP regression:
+    Verify an authenticated user can create an itinerary
+    and retrieve it through the backend API.
+    """
+
+    # Register a test user.
+    registration = client.post(
+        "/api/auth/register",
+        json={
+            "username": "sprint4_itinerary_user",
+            "email": "sprint4_itinerary@example.com",
+            "password": "TestPassword123!",
+        },
+    )
+    assert registration.status_code == 201
+
+    # Log in to obtain an access token.
+    login = client.post(
+        "/api/auth/login",
+        json={
+            "username": "sprint4_itinerary_user",
+            "password": "TestPassword123!",
+        },
+    )
+    assert login.status_code == 200
+
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    # Create an itinerary.
+    create_response = client.post(
+        "/api/itineraries",
+        json={
+            "name": "Sprint 4 Regression Trip",
+            "start_date": "2026-11-10",
+            "end_date": "2026-11-15",
+        },
+        headers=headers,
+    )
+
+    assert (
+        create_response.status_code == 201
+    ), f"Itinerary creation failed: {create_response.json()}"
+
+    created = create_response.json()
+    assert created["name"] == "Sprint 4 Regression Trip"
+
+    itinerary_id = created["itinerary_id"]
+
+    # Verify the itinerary appears in the user's list.
+    list_response = client.get(
+        "/api/itineraries",
+        headers=headers,
+    )
+    assert list_response.status_code == 200
+    assert any(trip["itinerary_id"] == itinerary_id for trip in list_response.json())
+
+    # Retrieve the itinerary by ID.
+    detail_response = client.get(
+        f"/api/itineraries/{itinerary_id}",
+        headers=headers,
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["itinerary_id"] == itinerary_id
+    assert detail_response.json()["name"] == "Sprint 4 Regression Trip"
