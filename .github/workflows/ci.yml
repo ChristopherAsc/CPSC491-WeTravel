@@ -130,17 +130,19 @@ jobs:
 
       - name: Frontend dependency audit
         run: |
-          npm audit --json > frontend-audit.json
-          result=$?
-          if [ ! -s frontend-audit.json ]; then
-            echo "Frontend audit report missing"
-            exit 1
+          if npm audit --json > frontend-audit.json; then
+            echo "Frontend audit completed with no reported vulnerabilities"
+          else
+            result=$?
+            if [ "$result" -eq 1 ]; then
+              echo "Frontend vulnerabilities detected; see report"
+            else
+              echo "Frontend audit execution failed"
+              exit "$result"
+            fi
           fi
-          if [ "$result" -gt 1 ]; then
-            echo "Frontend audit execution failed"
-            exit "$result"
-          fi
-          echo "Frontend audit completed; vulnerabilities may be present"
+
+          python3 -m json.tool frontend-audit.json > /dev/null
 
       - name: Export backend dependencies
         run: |
