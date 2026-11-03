@@ -1,0 +1,20 @@
+{
+  "request": "GET /api/safety-reports",
+  "authenticated": false,
+  "status": 200,
+  "body": [
+    {
+      "report_id": 1,
+      "user_id": 1,
+      "report_type": "C08 synthetic hazard",
+      "location": {
+        "location_id": 2,
+        "name": "C08 synthetic crossing",
+        "latitude": 33.8703596,
+        "longitude": -117.9242966
+      },
+      "description": "Synthetic safety report",
+      "created_at": "2026-11-03T04:12:50"
+    }
+  ]
+}

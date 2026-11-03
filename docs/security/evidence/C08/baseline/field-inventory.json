@@ -1,0 +1,74 @@
+{
+  "feed": [
+    "caption",
+    "created_at",
+    "location",
+    "location.latitude",
+    "location.longitude",
+    "location.name",
+    "media_url",
+    "post_id",
+    "user_id"
+  ],
+  "post_detail": [
+    "caption",
+    "created_at",
+    "location",
+    "location.latitude",
+    "location.longitude",
+    "location.name",
+    "media_url",
+    "post_id",
+    "user_id"
+  ],
+  "public_profile": [
+    "user_id",
+    "username"
+  ],
+  "user_posts": [
+    "caption",
+    "created_at",
+    "location",
+    "location.latitude",
+    "location.longitude",
+    "location.name",
+    "media_url",
+    "post_id",
+    "user_id"
+  ],
+  "location_list": [
+    "latitude",
+    "location_id",
+    "longitude",
+    "name"
+  ],
+  "location_detail": [
+    "latitude",
+    "location_id",
+    "longitude",
+    "name"
+  ],
+  "location_posts": [
+    "caption",
+    "created_at",
+    "location",
+    "location.latitude",
+    "location.longitude",
+    "location.name",
+    "media_url",
+    "post_id",
+    "user_id"
+  ],
+  "safety_reports": [
+    "created_at",
+    "description",
+    "location",
+    "location.latitude",
+    "location.location_id",
+    "location.longitude",
+    "location.name",
+    "report_id",
+    "report_type",
+    "user_id"
+  ]
+}

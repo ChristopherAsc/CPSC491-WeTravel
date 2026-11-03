@@ -1,4 +1,29 @@
+import pytest
 from models import Location, Post
+
+
+def register_and_login(client, username):
+    password = "TestPassword123!"
+
+    registration = client.post(
+        "/api/auth/register",
+        json={
+            "username": username,
+            "email": f"{username}@example.com",
+            "password": password,
+        },
+    )
+    assert registration.status_code == 201
+
+    login = client.post(
+        "/api/auth/login",
+        json={"username": username, "password": password},
+    )
+    assert login.status_code == 200
+
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    return registration.json()["user_id"], headers
 
 
 def test_get_posts_integration_smoke(client, db, seeded_user):
@@ -277,3 +302,89 @@ def test_post_detail_returns_correct_post_regression(client, db, seeded_user):
     assert data["location"]["name"] == "San Francisco, California"
     assert data["location"]["latitude"] == 37.7749
     assert data["location"]["longitude"] == -122.4194
+@pytest.mark.requirement("POST-02")
+def test_created_post_appears_first_in_feed_integration(client):
+    """
+    Sprint 4 Create Post -> Feed integration:
+
+    Authenticated POST /api/posts
+        -> post and location persisted
+        -> GET /api/posts returns the new post first
+        -> every submitted field round-trips unchanged
+    """
+
+    user_id, headers = register_and_login(client, "create_feed_user")
+
+    first_post = {
+        "caption": "Sunrise over Half Dome",
+        "media_url": None,
+        "location": {
+            "name": "Yosemite National Park, California, United States",
+            "latitude": 37.8651,
+            "longitude": -119.5383,
+        },
+    }
+    newest_post = {
+        "caption": "Fog rolling over the Golden Gate",
+        "media_url": None,
+        "location": {
+            "name": "San Francisco, California, United States",
+            "latitude": 37.7749,
+            "longitude": -122.4194,
+        },
+    }
+
+    first_response = client.post("/api/posts", json=first_post, headers=headers)
+    assert first_response.status_code == 201
+
+    newest_response = client.post("/api/posts", json=newest_post, headers=headers)
+    assert newest_response.status_code == 201
+    created = newest_response.json()
+
+    feed_response = client.get("/api/posts")
+    assert feed_response.status_code == 200
+    feed = feed_response.json()
+
+    assert [post["post_id"] for post in feed] == [
+        created["post_id"],
+        first_response.json()["post_id"],
+    ], "Newest post must be listed first in the feed"
+
+    feed_post = feed[0]
+    assert feed_post == created
+    assert feed_post["user_id"] == user_id
+    assert feed_post["caption"] == newest_post["caption"]
+    assert feed_post["media_url"] is None
+    assert feed_post["location"] == newest_post["location"]
+
+    detail_response = client.get(f"/api/posts/{created['post_id']}")
+    assert detail_response.status_code == 200
+    assert detail_response.json() == created
+
+
+@pytest.mark.requirement("POST-03", "POST-04")
+@pytest.mark.parametrize(
+    "invalid_post",
+    [
+        {
+            "caption": "   ",
+            "location": {"name": "Paris", "latitude": 48.8, "longitude": 2.3},
+        },
+        {"caption": "No location given"},
+        {
+            "caption": "Impossible coordinates",
+            "location": {"name": "Nowhere", "latitude": 91, "longitude": 2.3},
+        },
+    ],
+    ids=["blank-caption", "missing-location", "invalid-latitude"],
+)
+def test_rejected_post_is_not_added_to_feed_integration(client, invalid_post):
+    """A rejected submission returns a clear error and never reaches the feed."""
+
+    _, headers = register_and_login(client, "rejected_post_user")
+
+    response = client.post("/api/posts", json=invalid_post, headers=headers)
+
+    assert response.status_code == 422
+    assert response.json()["detail"], "Validation errors must explain the problem"
+    assert client.get("/api/posts").json() == []

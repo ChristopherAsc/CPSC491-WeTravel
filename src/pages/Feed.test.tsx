@@ -28,6 +28,20 @@ describe("Feed", () => {
     expect(screen.getByAltText("Travel photo for Yosemite")).toBeInTheDocument()
   })
 
+  it("confirms a post that was just published", async () => {
+    mockedGetPosts.mockResolvedValue([])
+    render(<MemoryRouter initialEntries={[{ pathname: "/feed", state: { publishedPostId: 42 } }]}><Feed /></MemoryRouter>)
+    expect(screen.getByText("Your post was published.")).toBeInTheDocument()
+    await screen.findByText("No travel posts yet")
+  })
+
+  it("does not show the published confirmation on a normal visit", async () => {
+    mockedGetPosts.mockResolvedValue([])
+    renderFeed()
+    await screen.findByText("No travel posts yet")
+    expect(screen.queryByText("Your post was published.")).not.toBeInTheDocument()
+  })
+
   it("shows an empty state", async () => {
     mockedGetPosts.mockResolvedValue([])
     renderFeed()
