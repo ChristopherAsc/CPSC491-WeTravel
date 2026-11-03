@@ -11,6 +11,7 @@ from pwdlib import PasswordHash
 from pydantic_models import (
     ItineraryCreate,
     ItineraryResponse,
+    ItineraryUpdate,
     LocationResponse,
     LoginRequest,
     PostCreate,
@@ -713,6 +714,51 @@ def get_itinerary(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to view this itinerary",
         )
+
+    return itinerary
+
+
+@router.put(
+    "/itineraries/{itinerary_id}",
+    response_model=ItineraryResponse,
+)
+def update_itinerary(
+    itinerary_id: int,
+    itinerary_data: ItineraryUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update an itinerary owned by the authenticated user."""
+
+    itinerary = db.get(Itinerary, itinerary_id)
+
+    if itinerary is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Itinerary not found",
+        )
+
+    if itinerary.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to modify this itinerary",
+        )
+
+    update_data = itinerary_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(itinerary, field, value)
+
+    try:
+        db.commit()
+        db.refresh(itinerary)
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to update itinerary",
+        ) from None
 
     return itinerary
 

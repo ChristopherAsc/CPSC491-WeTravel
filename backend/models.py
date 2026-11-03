@@ -108,6 +108,10 @@ class Post(Base):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def like_count(self) -> int:
+        return len(self.post_likes)
+
 
 class Itinerary(Base):
     __tablename__ = "itineraries"

@@ -43,12 +43,14 @@ class PostCreate(BaseModel):
 
 class PostResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
     post_id: int
     user_id: int
     caption: str
     media_url: Optional[str] = None
     location: Location
     created_at: datetime
+    like_count: int
 
 
 class ItineraryCreate(BaseModel):
@@ -69,6 +71,13 @@ class ItineraryResponse(BaseModel):
     start_date: date
     end_date: date
     destinations: list[LocationResponse] = Field(default_factory=list)
+
+
+class ItineraryUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+    start_date: date | None = None
+    end_date: date | None = None
 
 
 class SafetyReportCreate(BaseModel):
