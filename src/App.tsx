@@ -1,18 +1,18 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route } from "react-router-dom";
 
 import Navbar from "@/components/layout/Navbar"
 import MainContent from "@/components/layout/MainContent"
 import PageContainer from "@/components/layout/PageContainer"
 import ProtectedRoute from "@/auth/ProtectedRoute"
 
-import Home from "@/pages/Home"
-import Login from "@/pages/Login"
-import Register from "@/pages/Register"
-import Feed from "@/pages/Feed"
-import CreatePost from "@/pages/CreatePost"
-import Itinerary from "@/pages/Itinerary"
-import Profile from "@/pages/Profile"
-import MapPage from "@/pages/MapPage"
+import Home from "@/pages/Home";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import Feed from "@/pages/Feed";
+import CreatePost from "@/pages/CreatePost";
+import Itinerary from "@/pages/Itinerary";
+import Profile from "@/pages/Profile";
+import MapPage from "@/pages/MapPage";
 
 function App() {
   return (
@@ -39,7 +39,7 @@ function App() {
         </PageContainer>
       </MainContent>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

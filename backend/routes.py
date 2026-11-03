@@ -1,9 +1,10 @@
 import os
 from datetime import datetime, timedelta, timezone
 
+import httpx
 import jwt
 from database import get_db
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from models import Itinerary, Location, Post, SafetyReport, User
 from pwdlib import PasswordHash
@@ -21,7 +22,7 @@ from pydantic_models import (
     UserRegistration,
     UserResponse,
 )
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 # ---------------------------------------------------------
@@ -86,6 +87,7 @@ def get_current_user(
             token,
             SECRET_KEY,
             algorithms=[ALGORITHM],
+            options={"require": ["exp", "sub"]},
         )
 
         user_id = payload.get("sub")
@@ -405,6 +407,115 @@ def delete_post(
 # =========================================================
 # Map / Location Routes
 # =========================================================
+
+
+@router.get("/locations", response_model=list[LocationResponse])
+def list_locations(
+    limit: int = Query(default=100, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """Return existing WeTravel locations, not Mapbox search results."""
+    return db.scalars(
+        select(Location).order_by(Location.location_id).limit(limit)
+    ).all()
+
+
+@router.get("/locations/nearby", response_model=list[LocationResponse])
+def nearby_locations(
+    latitude: float = Query(ge=-90, le=90),
+    longitude: float = Query(ge=-180, le=180),
+    radius_m: float = Query(default=5000, gt=0, le=50000),
+    limit: int = Query(default=100, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """Find persisted WeTravel locations using PostGIS geography distances (meters).
+
+    PostGIS must be enabled by the Alembic migration. This endpoint is PostgreSQL-only.
+    """
+    if db.bind is None or db.bind.dialect.name != "postgresql":
+        raise HTTPException(status_code=503, detail="PostGIS requires PostgreSQL")
+
+    # MakePoint uses longitude first. The parameterized query prevents SQL injection.
+    query = text("""
+        SELECT location_id, name, latitude, longitude
+        FROM locations
+        WHERE ST_DWithin(
+            ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
+            :radius_m
+        )
+        ORDER BY ST_Distance(
+            ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography
+        ), location_id
+        LIMIT :limit
+    """)
+    rows = (
+        db.execute(
+            query,
+            {
+                "longitude": longitude,
+                "latitude": latitude,
+                "radius_m": radius_m,
+                "limit": limit,
+            },
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
+
+
+MAPBOX_SEARCH_URL = "https://api.mapbox.com/search/searchbox/v1"
+
+
+def _mapbox_token() -> str:
+    # A public pk. token is sufficient; configure it on the backend separately.
+    token = os.getenv("MAPBOX_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(status_code=503, detail="Mapbox Search is not configured")
+    return token
+
+
+def _mapbox_request(path: str, params: dict) -> dict:
+    params = {**params, "access_token": _mapbox_token()}
+    try:
+        with httpx.Client(timeout=8.0) as client:
+            response = client.get(f"{MAPBOX_SEARCH_URL}/{path}", params=params)
+            response.raise_for_status()
+            return response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        # Do not surface upstream error bodies or token-bearing URLs to clients.
+        raise HTTPException(
+            status_code=502, detail="Mapbox Search unavailable"
+        ) from exc
+
+
+@router.get("/locations/search/suggest")
+def suggest_places(
+    q: str = Query(min_length=2, max_length=256),
+    session_token: str = Query(min_length=8, max_length=128),
+    limit: int = Query(default=5, ge=1, le=10),
+    near: str | None = Query(default=None, max_length=100),
+):
+    """Live, temporary Mapbox autocomplete; do not persist these results."""
+    params = {"q": q, "session_token": session_token, "limit": limit}
+    if near:
+        params["near"] = near
+    payload = _mapbox_request("suggest", params)
+    return {"suggestions": payload.get("suggestions", [])}
+
+
+@router.get("/locations/search/retrieve/{mapbox_id:path}")
+def retrieve_place(
+    mapbox_id: str,
+    session_token: str = Query(min_length=8, max_length=128),
+):
+    """Retrieve a selected Mapbox suggestion for temporary on-screen display."""
+    # Restrict user input to a single identifier path segment.
+    if not mapbox_id or "/" in mapbox_id or len(mapbox_id) > 256:
+        raise HTTPException(status_code=422, detail="Invalid Mapbox place ID")
+    return _mapbox_request(f"retrieve/{mapbox_id}", {"session_token": session_token})
 
 
 @router.get(
