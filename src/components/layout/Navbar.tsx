@@ -1,6 +1,14 @@
-import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "@/auth/useAuth";
-import { House, Map, Plus, CalendarDays, User, LogOut } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom"
+import {
+  House,
+  Map,
+  Plus,
+  CalendarDays,
+  User,
+  LogIn,
+  LogOut,
+  UserPlus,
+} from "lucide-react"
 
 import { useAuth } from "@/auth/useAuth"
 
@@ -10,7 +18,7 @@ const navItems = [
   { name: "Create Post", path: "/create-post", icon: Plus },
   { name: "Itinerary", path: "/itinerary", icon: CalendarDays },
   { name: "Profile", path: "/profile", icon: User },
-];
+]
 
 const authLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -26,7 +34,7 @@ function AuthControls() {
 
   function handleLogout() {
     logout()
-    navigate("/login")
+    navigate("/login", { replace: true })
   }
 
   // Hide the controls while a saved session is being verified, to avoid flicker
@@ -71,14 +79,6 @@ function AuthControls() {
 }
 
 function Navbar() {
-  const { isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
-  };
-
   return (
     <>
       {/* Mobile top strip: the bottom bar has no room for auth controls */}
@@ -95,7 +95,7 @@ function Navbar() {
 
           <div className="flex items-center gap-2">
             {navItems.map((item) => {
-              const Icon = item.icon;
+              const Icon = item.icon
 
               return (
                 <NavLink
@@ -112,43 +112,22 @@ function Navbar() {
                   <Icon size={18} />
                   {item.name}
                 </NavLink>
-              );
+              )
             })}
 
-            {isAuthenticated && (
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                <LogOut size={18} />
-                Logout
-              </button>
-            )}
+            <div className="ml-2 flex items-center gap-2 border-l pl-4">
+              <AuthControls />
+            </div>
           </div>
         </div>
       </nav>
-
-      {/* Mobile Logout Button */}
-      {isAuthenticated && (
-        <div className="fixed bottom-16 right-3 z-50 md:hidden">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-red-600 shadow-md"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
-        </div>
-      )}
 
       {/* Mobile Bottom Navbar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white md:hidden">
         <div className="grid grid-cols-5">
           {navItems.map((item) => {
-            const Icon = item.icon;
-            const isCreatePost = item.name === "Create Post";
+            const Icon = item.icon
+            const isCreatePost = item.name === "Create Post"
 
             return (
               <NavLink
@@ -172,12 +151,12 @@ function Navbar() {
 
                 {!isCreatePost && <span>{item.name}</span>}
               </NavLink>
-            );
+            )
           })}
         </div>
       </nav>
     </>
-  );
+  )
 }
 
-export default Navbar;
+export default Navbar
