@@ -47,7 +47,7 @@ POST_FIELDS = {
     "location.name",
     "location.latitude",
     "location.longitude",
-    'like_count'
+    "like_count",
 }
 PROFILE_FIELDS = {"user_id", "username"}
 LOCATION_FIELDS = {"location_id", "name", "latitude", "longitude"}
