@@ -6,7 +6,7 @@ import jwt
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from models import Itinerary, Location, Post, SafetyReport, User
+from models import Itinerary, Location, Post, PostLike, SafetyReport, User
 from pwdlib import PasswordHash
 from pydantic_models import (
     ItineraryCreate,
@@ -14,6 +14,7 @@ from pydantic_models import (
     LocationResponse,
     LoginRequest,
     PostCreate,
+    PostLikeResponse,
     PostResponse,
     PublicUserResponse,
     SafetyReportCreate,
@@ -22,7 +23,7 @@ from pydantic_models import (
     UserRegistration,
     UserResponse,
 )
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 # ---------------------------------------------------------
@@ -405,6 +406,74 @@ def delete_post(
 
 
 # =========================================================
+# Post Likes
+# =========================================================
+
+
+@router.post(
+    "/posts/{post_id}/likes",
+    response_model=PostLikeResponse,
+)
+def toggle_post_like(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Toggle the authenticated user's like on a post."""
+
+    # Verify that the post exists.
+    post = db.get(Post, post_id)
+
+    if post is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+
+    # Check whether the authenticated user has already liked the post.
+    existing_like = db.scalar(
+        select(PostLike).where(
+            PostLike.user_id == current_user.user_id,
+            PostLike.post_id == post_id,
+        )
+    )
+
+    try:
+        if existing_like is not None:
+            # User already liked the post, so remove the like.
+            db.delete(existing_like)
+            liked = False
+        else:
+            # User has not liked the post, so create the like.
+            new_like = PostLike(
+                user_id=current_user.user_id,
+                post_id=post_id,
+            )
+            db.add(new_like)
+            liked = True
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to update post like",
+        ) from None
+
+    # Count the current likes after the toggle.
+    like_count = db.scalar(
+        select(func.count()).select_from(PostLike).where(PostLike.post_id == post_id)
+    )
+
+    return {
+        "post_id": post_id,
+        "liked": liked,
+        "like_count": like_count,
+    }
+
+
+# =========================================================
 # Map / Location Routes
 # =========================================================
 
@@ -583,11 +652,28 @@ def create_itinerary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Existing itinerary implementation retained.
-    # This feature is owned by another team member.
+    """Create an itinerary and associate its requested destinations."""
+
+    locations = []
+
+    for location_id in itinerary_data.destinations:
+        location = db.get(Location, location_id)
+
+        if location is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Location {location_id} not found",
+            )
+
+        locations.append(location)
+
     new_itinerary = Itinerary(
         user_id=current_user.user_id,
         name=itinerary_data.name,
+        description=itinerary_data.description,
+        start_date=itinerary_data.start_date,
+        end_date=itinerary_data.end_date,
+        destinations=locations,
     )
 
     try:
@@ -629,6 +715,113 @@ def get_itinerary(
         )
 
     return itinerary
+
+
+@router.post(
+    "/itineraries/{itinerary_id}/destinations/{location_id}",
+    response_model=ItineraryResponse,
+)
+def add_itinerary_destination(
+    itinerary_id: int,
+    location_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Add a location to an itinerary owned by the authenticated user."""
+
+    itinerary = db.get(Itinerary, itinerary_id)
+
+    if itinerary is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Itinerary not found",
+        )
+
+    if itinerary.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to modify this itinerary",
+        )
+
+    location = db.get(Location, location_id)
+
+    if location is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found",
+        )
+
+    if location in itinerary.destinations:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Location is already a destination of this itinerary",
+        )
+
+    try:
+        itinerary.destinations.append(location)
+        db.commit()
+        db.refresh(itinerary)
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to add itinerary destination",
+        ) from None
+
+    return itinerary
+
+
+@router.delete(
+    "/itineraries/{itinerary_id}/destinations/{location_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_itinerary_destination(
+    itinerary_id: int,
+    location_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove a destination from an itinerary owned by the authenticated user."""
+
+    itinerary = db.get(Itinerary, itinerary_id)
+
+    if itinerary is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Itinerary not found",
+        )
+
+    if itinerary.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to modify this itinerary",
+        )
+
+    location = db.get(Location, location_id)
+
+    if location is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found",
+        )
+
+    if location not in itinerary.destinations:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location is not a destination of this itinerary",
+        )
+
+    try:
+        itinerary.destinations.remove(location)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to remove itinerary destination",
+        ) from None
 
 
 # =========================================================
@@ -697,3 +890,38 @@ def create_safety_report(
         ) from None
 
     return new_report
+
+
+@router.delete(
+    "/safety-reports/{report_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_safety_report(
+    report_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Only the safety report's owner may delete it."""
+    report = db.get(SafetyReport, report_id)
+
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Safety report not found",
+        )
+
+    if report.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete this safety report",
+        )
+
+    try:
+        db.delete(report)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to delete safety report",
+        ) from None
