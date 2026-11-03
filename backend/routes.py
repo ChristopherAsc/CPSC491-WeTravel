@@ -16,6 +16,7 @@ from pydantic_models import (
     PostCreate,
     PostLikeResponse,
     PostResponse,
+    PublicSafetyReportResponse,
     PublicUserResponse,
     SafetyReportCreate,
     SafetyReportResponse,
@@ -831,7 +832,7 @@ def remove_itinerary_destination(
 
 @router.get(
     "/safety-reports",
-    response_model=list[SafetyReportResponse],
+    response_model=list[PublicSafetyReportResponse],
 )
 def get_safety_reports(
     report_type: str | None = None,
