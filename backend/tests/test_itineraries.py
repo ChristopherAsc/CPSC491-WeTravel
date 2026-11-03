@@ -366,3 +366,156 @@ def test_add_destination_unknown_location(
     )
 
     assert response.status_code == 404
+
+
+# =========================================================
+# 7. Itinerary Update Tests
+# =========================================================
+# Verifies that itinerary owners can update itinerary fields
+# while non-owners and unauthenticated users cannot modify
+# another user's itinerary.
+# =========================================================
+
+
+@pytest.mark.requirement("ITINERARY-UPDATE")
+def test_owner_can_update_itinerary(
+    client,
+    owned_itinerary,
+    itinerary_headers,
+):
+    """Verify the itinerary owner can update itinerary fields."""
+    response = client.put(
+        f"/api/itineraries/{owned_itinerary.itinerary_id}",
+        headers=itinerary_headers[0],
+        json={
+            "name": "Updated Itinerary",
+            "description": "Updated description",
+            "start_date": "2026-12-01",
+            "end_date": "2026-12-05",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["itinerary_id"] == owned_itinerary.itinerary_id
+    assert data["name"] == "Updated Itinerary"
+    assert data["description"] == "Updated description"
+    assert data["start_date"] == "2026-12-01"
+    assert data["end_date"] == "2026-12-05"
+
+
+@pytest.mark.requirement("ITINERARY-UPDATE")
+def test_itinerary_update_persists_changes(
+    client,
+    db,
+    owned_itinerary,
+    itinerary_headers,
+):
+    """Verify itinerary updates are persisted to the database."""
+    response = client.put(
+        f"/api/itineraries/{owned_itinerary.itinerary_id}",
+        headers=itinerary_headers[0],
+        json={
+            "name": "Persisted Itinerary",
+            "description": "Persisted description",
+        },
+    )
+
+    assert response.status_code == 200
+
+    db.expire_all()
+
+    updated = db.get(Itinerary, owned_itinerary.itinerary_id)
+
+    assert updated is not None
+    assert updated.name == "Persisted Itinerary"
+    assert updated.description == "Persisted description"
+
+
+@pytest.mark.requirement("ITINERARY-UPDATE")
+def test_itinerary_partial_update_preserves_unspecified_fields(
+    client,
+    db,
+    owned_itinerary,
+    itinerary_headers,
+):
+    """Verify omitted fields remain unchanged during a partial update."""
+    original_start_date = owned_itinerary.start_date
+    original_end_date = owned_itinerary.end_date
+
+    response = client.put(
+        f"/api/itineraries/{owned_itinerary.itinerary_id}",
+        headers=itinerary_headers[0],
+        json={
+            "name": "Partially Updated Itinerary",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["name"] == "Partially Updated Itinerary"
+    assert data["start_date"] == original_start_date.isoformat()
+    assert data["end_date"] == original_end_date.isoformat()
+
+    db.expire_all()
+
+    updated = db.get(Itinerary, owned_itinerary.itinerary_id)
+
+    assert updated.name == "Partially Updated Itinerary"
+    assert updated.start_date == original_start_date
+    assert updated.end_date == original_end_date
+
+
+@pytest.mark.requirement("ITINERARY-UPDATE")
+def test_nonowner_cannot_update_itinerary(
+    client,
+    owned_itinerary,
+    itinerary_headers,
+):
+    """Verify a non-owner cannot modify another user's itinerary."""
+    response = client.put(
+        f"/api/itineraries/{owned_itinerary.itinerary_id}",
+        headers=itinerary_headers[1],
+        json={
+            "name": "Unauthorized Update",
+        },
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.requirement("ITINERARY-UPDATE")
+def test_itinerary_update_requires_auth(
+    client,
+    owned_itinerary,
+):
+    """Verify unauthenticated users cannot update an itinerary."""
+    response = client.put(
+        f"/api/itineraries/{owned_itinerary.itinerary_id}",
+        json={
+            "name": "Unauthenticated Update",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.requirement("ITINERARY-UPDATE")
+def test_update_nonexistent_itinerary(
+    client,
+    itinerary_headers,
+):
+    """Verify updating a nonexistent itinerary returns HTTP 404."""
+    response = client.put(
+        "/api/itineraries/999999999",
+        headers=itinerary_headers[0],
+        json={
+            "name": "Missing Itinerary",
+        },
+    )
+
+    assert response.status_code == 404
