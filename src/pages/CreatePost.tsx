@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { useEffect, useState, type KeyboardEvent } from "react"
+import { Link, useNavigate } from "react-router-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useWatch } from "react-hook-form"
-import { ImagePlus, MapPin, Send, X } from "lucide-react"
+import { ImagePlus, LoaderCircle, MapPin, Search, Send, X } from "lucide-react"
 
+import { ApiRequestError, createPost } from "@/api_configs"
+import { handleUnauthorized } from "@/auth/authFetch"
+import { getToken } from "@/auth/tokenStorage"
+import { PlaceSearchError, searchPlaces, type PlaceResult } from "@/lib/placeSearch"
 import { createPostSchema, type CreatePostFormData } from "@/schemas/createPostSchema"
 
 const initialValues: CreatePostFormData = {
@@ -14,12 +18,16 @@ const initialValues: CreatePostFormData = {
 const inputStyles = "mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#0D3B66] focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
 
 function CreatePost() {
-  const [isSignedIn, setIsSignedIn] = useState(() => Boolean(localStorage.getItem("access_token")))
+  const navigate = useNavigate()
+  const [isSignedIn, setIsSignedIn] = useState(() => getToken() !== null)
   const [submitError, setSubmitError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imageError, setImageError] = useState("")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [placeResults, setPlaceResults] = useState<PlaceResult[] | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
+  const [placeError, setPlaceError] = useState("")
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false)
 
   useEffect(() => {
     if (!previewUrl) return
@@ -53,6 +61,10 @@ function CreatePost() {
     register,
     handleSubmit,
     control,
+    trigger,
+    getValues,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostSchema),
@@ -62,24 +74,88 @@ function CreatePost() {
 
   const captionLength = useWatch({ control, name: "caption" })?.length ?? 0
 
-  function onSubmit(values: CreatePostFormData) {
+  function resetPlaceSearch() {
+    setPlaceResults(null)
+    setSelectedPlace(null)
+    setPlaceError("")
+  }
+
+  async function findPlaces() {
+    if (!(await trigger("locationName"))) return
+
+    const query = getValues("locationName").trim()
+    resetPlaceSearch()
+    setIsSearchingPlaces(true)
+
+    try {
+      const results = await searchPlaces(query)
+      setPlaceResults(results)
+      if (results.length === 0) {
+        setPlaceError(`No places found for “${query}”. Try a city, landmark, or region name.`)
+      }
+    } catch (error) {
+      setPlaceError(error instanceof PlaceSearchError ? error.message : "Location search failed. Please try again.")
+    } finally {
+      setIsSearchingPlaces(false)
+    }
+  }
+
+  function handlePlaceKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // Enter searches for the place instead of submitting the whole form
+    if (event.key === "Enter") {
+      event.preventDefault()
+      void findPlaces()
+    }
+  }
+
+  function choosePlace(place: PlaceResult) {
+    setSelectedPlace(place)
+    clearErrors("locationName")
+  }
+
+  async function onSubmit(values: CreatePostFormData) {
     setSubmitError("")
-    setSuccessMessage("")
 
     if (selectedImage) {
       setSubmitError("Photo upload is preview-only until image storage is connected. Remove the photo to continue.")
       return
     }
 
-    if (!localStorage.getItem("access_token")) {
+    const token = getToken()
+    if (!token) {
       setIsSignedIn(false)
       setSubmitError("Please log in before creating a post.")
       return
     }
 
-    // POST /api/posts currently requires a location with latitude/longitude.
-    // Wait for an API-backed location selector rather than inventing coordinates.
-    setSubmitError(`Location lookup is not connected yet. The place “${values.locationName}” needs to be resolved automatically before this post can be published.`)
+    if (!selectedPlace) {
+      setError("locationName", { message: "Search for this place and choose a match before publishing." })
+      return
+    }
+
+    try {
+      const post = await createPost({
+        caption: values.caption,
+        media_url: null,
+        location: {
+          name: selectedPlace.fullName.slice(0, 255),
+          latitude: selectedPlace.latitude,
+          longitude: selectedPlace.longitude,
+        },
+      }, token)
+
+      navigate("/feed", { state: { publishedPostId: post.post_id } })
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 401) {
+          handleUnauthorized()
+          setIsSignedIn(false)
+        }
+        setSubmitError(error.message)
+        return
+      }
+      setSubmitError("Couldn't reach the server, so your post was not published. Check your connection and try again.")
+    }
   }
 
   return (
@@ -154,17 +230,49 @@ function CreatePost() {
 
         <section className="space-y-4 border-t border-gray-200 pt-5">
           <div className="flex items-center gap-2 text-[#0D3B66]"><MapPin size={20} aria-hidden="true" /><h2 className="text-lg font-semibold">Location</h2></div>
-          <p className="text-xs text-gray-500">Enter the destination name. Coordinates will be looked up automatically once location search is connected.</p>
+          <p className="text-xs text-gray-500">Search for the destination, then choose the matching place from the results.</p>
           <div>
             <label htmlFor="locationName" className="block text-sm font-medium">Place name <span className="text-red-600">*</span></label>
-            <input id="locationName" type="text" placeholder="Yosemite National Park" aria-invalid={Boolean(errors.locationName)} aria-describedby={errors.locationName ? "location-error" : undefined} className={inputStyles} {...register("locationName")} />
+            <div className="flex gap-2">
+              <input
+                id="locationName"
+                type="text"
+                placeholder="Yosemite National Park"
+                aria-invalid={Boolean(errors.locationName)}
+                aria-describedby={errors.locationName ? "location-error" : undefined}
+                className={inputStyles}
+                onKeyDown={handlePlaceKeyDown}
+                {...register("locationName", { onChange: resetPlaceSearch })}
+              />
+              <button type="button" onClick={() => void findPlaces()} disabled={isSearchingPlaces} className="mt-1 inline-flex shrink-0 items-center gap-2 rounded-lg border border-[#0D3B66] px-3 py-2 text-sm font-semibold text-[#0D3B66] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">
+                {isSearchingPlaces ? <LoaderCircle className="animate-spin" size={16} aria-hidden="true" /> : <Search size={16} aria-hidden="true" />}
+                Find location
+              </button>
+            </div>
             {errors.locationName && <p id="location-error" role="alert" className="mt-1 text-sm text-red-600">{errors.locationName.message}</p>}
+            {placeError && <p role="alert" className="mt-1 text-sm text-red-600">{placeError}</p>}
           </div>
 
+          {selectedPlace ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+              <span className="flex min-w-0 items-center gap-2"><MapPin size={16} aria-hidden="true" /><span className="truncate">Selected: {selectedPlace.fullName}</span></span>
+              <button type="button" onClick={() => setSelectedPlace(null)} className="shrink-0 font-semibold underline">Change</button>
+            </div>
+          ) : placeResults && placeResults.length > 0 && (
+            <ul aria-label="Matching places" className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+              {placeResults.map((place) => (
+                <li key={place.id}>
+                  <button type="button" onClick={() => choosePlace(place)} className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-blue-50">
+                    <span className="text-sm font-medium text-gray-900">{place.name}</span>
+                    <span className="text-xs text-gray-500">{place.fullName}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {submitError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{submitError}</div>}
-        {successMessage && <div role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">{successMessage} <Link to="/feed" className="font-semibold underline">View Feed</Link></div>}
 
         <button type="submit" disabled={isSubmitting || !isSignedIn} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D3B66] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#15558b] disabled:cursor-not-allowed disabled:opacity-50">
           <Send size={17} aria-hidden="true" />

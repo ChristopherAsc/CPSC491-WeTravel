@@ -14,6 +14,12 @@ export function onUnauthorized(listener: UnauthorizedListener): () => void {
   }
 }
 
+// Token is invalid or expired: end the session everywhere
+export function handleUnauthorized(): void {
+  clearToken()
+  unauthorizedListeners.forEach((listener) => listener())
+}
+
 // Use this for every protected API request. `path` starts with "/api/...".
 export async function authFetch(
   path: string,
@@ -32,9 +38,7 @@ export async function authFetch(
   })
 
   if (response.status === 401) {
-    // Token is invalid or expired: end the session everywhere
-    clearToken()
-    unauthorizedListeners.forEach((listener) => listener())
+    handleUnauthorized()
   }
 
   return response
