@@ -12,7 +12,7 @@ import {
   type AuthContextValue,
   type AuthUser,
 } from "@/auth/authContext"
-import { onUnauthorized } from "@/auth/authFetch"
+import { authFetch, onUnauthorized } from "@/auth/authFetch"
 import { clearToken, getToken, setToken } from "@/auth/tokenStorage"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -20,20 +20,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(() => getToken() !== null)
 
-  // Restore the session after a page refresh
+  // Restore the session after a page refresh:
+  // - 200: load the user
+  // - 401: authFetch clears the token and notifies the listener below
+  // - network error or 5xx: keep the token, the backend may just be unavailable
   useEffect(() => {
-    const savedToken = getToken()
-
-    if (savedToken === null) {
+    if (getToken() === null) {
       return
     }
 
-    getCurrentUser(savedToken)
-      .then((currentUser: AuthUser) => setUser(currentUser))
+    authFetch("/api/users/me")
+      .then(async (response) => {
+        if (response.ok) {
+          setUser((await response.json()) as AuthUser)
+        }
+      })
       .catch(() => {
-        // Invalid or expired token (or backend unavailable): treat as logged out
-        clearToken()
-        setTokenState(null)
+        // Backend unreachable: keep the saved token
       })
       .finally(() => setIsLoading(false))
   }, [])

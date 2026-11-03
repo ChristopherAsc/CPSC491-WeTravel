@@ -13,10 +13,8 @@ class Location(BaseModel):
     @classmethod
     def validate_name(cls, value: str) -> str:
         value = value.strip()
-
         if not value:
             raise ValueError("Location name cannot be blank")
-
         return value
 
 
@@ -38,10 +36,8 @@ class PostCreate(BaseModel):
     @classmethod
     def validate_caption(cls, value: str) -> str:
         value = value.strip()
-
         if not value:
             raise ValueError("Caption cannot be blank")
-
         return value
 
 
@@ -65,9 +61,11 @@ class ItineraryCreate(BaseModel):
 
 class ItineraryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
     itinerary_id: int
     user_id: int
     name: str
+    description: Optional[str] = None
     start_date: date
     end_date: date
     destinations: list[LocationResponse] = Field(default_factory=list)
@@ -82,10 +80,8 @@ class SafetyReportCreate(BaseModel):
     @classmethod
     def validate_report_type(cls, value: str) -> str:
         value = value.strip()
-
         if not value:
             raise ValueError("Report type cannot be blank")
-
         return value
 
 
@@ -112,15 +108,16 @@ class UserResponse(BaseModel):
     user_id: int
     username: str
     email: str
-    posts: list[PostResponse] = []  # Or List[PostResponse] = [] for Python < 3.9
+    posts: list[PostResponse] = []
 
 
 class PublicUserResponse(BaseModel):
+    """Fields intentionally safe for public profile responses."""
+
     model_config = ConfigDict(from_attributes=True)
 
     user_id: int
     username: str
-    posts: list[PostResponse] = []
 
 
 class LoginRequest(BaseModel):
@@ -131,3 +128,9 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class PostLikeResponse(BaseModel):
+    post_id: int
+    liked: bool
+    like_count: int

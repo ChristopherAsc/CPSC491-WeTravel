@@ -1,16 +1,25 @@
 import { useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Compass, LockKeyhole, LogIn, UserRound } from "lucide-react"
 
 import { loginUser } from "@/api_configs"
 import { useAuth } from "@/auth/useAuth"
 
+type LocationState = { from?: { pathname?: string } } | null
+
 function Login() {
   const { login, user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState("")
   const [submitting, setSubmitting] = useState(false)
+
+  // ProtectedRoute remembers the page the user was trying to open
+  const redirectTo =
+    (location.state as LocationState)?.from?.pathname ?? "/feed"
 
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -24,7 +33,7 @@ function Login() {
       const loginData = await loginUser(username, password)
       await login(loginData.access_token)
 
-      setMessage(`Logged in as ${username}`)
+      navigate(redirectTo, { replace: true })
     } catch (error) {
       console.error("Login failed:", error)
       setMessage(error instanceof Error ? error.message : "Login failed")
