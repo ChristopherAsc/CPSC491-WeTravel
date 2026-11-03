@@ -2,11 +2,16 @@
 
 PostgreSQL database, managed via SQLAlchemy models (`models.py`) and Alembic migrations (`alembic/versions/`).
 
-Only `users` is implemented in `models.py` / migrated so far. The other tables below are inferred from the response schemas in `pydantic_models.py` (which read `from_attributes=True`, i.e. from ORM objects) and describe the data model the API is being built toward, but do not yet exist as SQLAlchemy models or migrations.
+All tables below are implemented in `models.py` and created by the migrations:
+
+| Revision       | File                                                  | Creates                                                                 |
+|----------------|-------------------------------------------------------|-------------------------------------------------------------------------|
+| `a6fe3f474c47` | `a6fe3f474c47_create_users_table.py`                  | `users`                                                                 |
+| `ff6b866c8309` | `ff6b866c8309_add_post_safety_and_location_tables.py` | `locations`, `itineraries`, `posts`, `safety_reports`, `itinerary_destinations` |
 
 ## Tables
 
-### `users` (implemented)
+### `users`
 
 | Column            | Type         | Constraints                |
 |-------------------|--------------|-----------------------------|
@@ -15,56 +20,56 @@ Only `users` is implemented in `models.py` / migrated so far. The other tables b
 | `email`           | String(255)  | Unique, not null            |
 | `hashed_password` | String(255)  | Not null                    |
 
-### `locations` (planned)
+### `locations`
 
-| Column       | Type    | Constraints |
-|--------------|---------|--------------|
-| `location_id`| Integer | Primary key  |
-| `name`       | String  | Not null     |
-| `latitude`   | Float   | Not null     |
-| `longitude`  | Float   | Not null     |
+| Column        | Type        | Constraints |
+|---------------|-------------|--------------|
+| `location_id` | Integer     | Primary key  |
+| `name`        | String(255) | Not null     |
+| `latitude`    | Float       | Not null     |
+| `longitude`   | Float       | Not null     |
 
-### `posts` (planned)
+### `posts`
 
-| Column       | Type          | Constraints                          |
-|--------------|---------------|----------------------------------------|
-| `post_id`    | Integer       | Primary key                            |
-| `user_id`    | Integer       | Foreign key → `users.user_id`          |
-| `caption`    | String(2200)  | Not null                               |
-| `media_url`  | String        | Nullable                               |
-| `location_id`| Integer       | Foreign key → `locations.location_id`  |
-| `created_at` | DateTime      | Not null                               |
+| Column        | Type                      | Constraints                                                   |
+|---------------|---------------------------|----------------------------------------------------------------|
+| `post_id`     | Integer                   | Primary key                                                    |
+| `user_id`     | Integer                   | Foreign key → `users.user_id` (on delete cascade), not null, indexed |
+| `location_id` | Integer                   | Foreign key → `locations.location_id`, not null, indexed       |
+| `caption`     | String(2200)              | Not null                                                       |
+| `media_url`   | String(2048)              | Nullable                                                       |
+| `created_at`  | DateTime (with time zone) | Not null, server default `now()`                               |
 
-### `itineraries` (planned)
+### `itineraries`
 
-| Column        | Type         | Constraints                     |
-|---------------|--------------|-----------------------------------|
-| `itinerary_id`| Integer      | Primary key                       |
-| `user_id`     | Integer      | Foreign key → `users.user_id`     |
-| `name`        | String(100)  | Not null                          |
-| `description` | String       | Nullable                          |
-| `start_date`  | Date         | Not null                          |
-| `end_date`    | Date         | Not null                          |
+| Column         | Type         | Constraints                                                   |
+|----------------|--------------|----------------------------------------------------------------|
+| `itinerary_id` | Integer      | Primary key                                                    |
+| `user_id`      | Integer      | Foreign key → `users.user_id` (on delete cascade), not null, indexed |
+| `name`         | String(100)  | Not null                                                       |
+| `description`  | String(2000) | Nullable                                                       |
+| `start_date`   | Date         | Not null                                                       |
+| `end_date`     | Date         | Not null                                                       |
 
-### `itinerary_destinations` (planned, join table)
+### `itinerary_destinations` (join table)
 
-Many-to-many link between an itinerary and the locations on it (`ItineraryCreate.destinations` / `ItineraryResponse.destinations`).
+Many-to-many link between an itinerary and the locations on it (`Itinerary.destinations` / `Location.itineraries`). Composite primary key on (`itinerary_id`, `location_id`).
 
-| Column         | Type    | Constraints                            |
-|----------------|---------|-------------------------------------------|
-| `itinerary_id` | Integer | Foreign key → `itineraries.itinerary_id`  |
-| `location_id`  | Integer | Foreign key → `locations.location_id`     |
+| Column         | Type    | Constraints                                                          |
+|----------------|---------|-----------------------------------------------------------------------|
+| `itinerary_id` | Integer | Primary key, foreign key → `itineraries.itinerary_id` (on delete cascade) |
+| `location_id`  | Integer | Primary key, foreign key → `locations.location_id` (on delete cascade)    |
 
-### `safety_reports` (planned)
+### `safety_reports`
 
-| Column        | Type    | Constraints                           |
-|---------------|---------|------------------------------------------|
-| `report_id`   | Integer | Primary key                              |
-| `user_id`     | Integer | Foreign key → `users.user_id`            |
-| `report_type` | String  | Not null                                 |
-| `location_id` | Integer | Foreign key → `locations.location_id`    |
-| `description` | String  | Nullable                                 |
-| `created_at`  | DateTime| Not null                                 |
+| Column        | Type                      | Constraints                                                   |
+|---------------|---------------------------|----------------------------------------------------------------|
+| `report_id`   | Integer                   | Primary key                                                    |
+| `user_id`     | Integer                   | Foreign key → `users.user_id` (on delete cascade), not null, indexed |
+| `location_id` | Integer                   | Foreign key → `locations.location_id`, not null, indexed       |
+| `report_type` | String(100)               | Not null                                                       |
+| `description` | String(2000)              | Nullable                                                       |
+| `created_at`  | DateTime (with time zone) | Not null, server default `now()`                               |
 
 ## Relationships
 
@@ -75,4 +80,20 @@ Many-to-many link between an itinerary and the locations on it (`ItineraryCreate
 - `locations` 1—* `safety_reports` (`safety_reports.location_id`)
 - `itineraries` *—* `locations` through `itinerary_destinations`
 
-Currently, `users` is the only table actually created in the database (see `alembic/versions/a6fe3f474c47_create_users_table.py`); it has no foreign keys yet since no other tables exist.
+### Delete behavior
+
+- Deleting a user deletes their posts, itineraries, and safety reports (database `ON DELETE CASCADE`, plus `cascade="all, delete-orphan"` on the ORM relationships).
+- Deleting an itinerary or a location removes its rows from `itinerary_destinations`.
+- Deleting a location that is still referenced by a post or safety report fails (no cascade on those foreign keys).
+
+## Indexes
+
+| Index                           | Table            | Column        |
+|---------------------------------|------------------|---------------|
+| `ix_posts_user_id`              | `posts`          | `user_id`     |
+| `ix_posts_location_id`          | `posts`          | `location_id` |
+| `ix_itineraries_user_id`        | `itineraries`    | `user_id`     |
+| `ix_safety_reports_user_id`     | `safety_reports` | `user_id`     |
+| `ix_safety_reports_location_id` | `safety_reports` | `location_id` |
+
+`users.username` and `users.email` are covered by their unique constraints. Note that `models.py` also marks them `index=True`, but the `create_users_table` migration doesn't create separate `ix_users_*` indexes, so Alembic autogenerate may try to add them.
