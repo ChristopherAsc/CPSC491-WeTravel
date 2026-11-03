@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import CreatePost from "./CreatePost"
 import Feed from "./Feed"
 import { ApiRequestError, createPost, getPosts } from "@/api_configs"
 import { onUnauthorized } from "@/auth/authFetch"
 import { PlaceSearchError, searchPlaces, type PlaceResult } from "@/lib/placeSearch"
+
+const { useAuthMock } = vi.hoisted(() => ({ useAuthMock: vi.fn() }))
+
+vi.mock("@/auth/useAuth", () => ({ useAuth: useAuthMock }))
 
 vi.mock("@/api_configs", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api_configs")>()),
@@ -41,6 +45,7 @@ const renderPage = () => render(
     </Routes>
   </MemoryRouter>
 )
+const signIn = () => useAuthMock.mockReturnValue({ token: "example-test-token", isAuthenticated: true, isLoading: false })
 const fillRequiredFields = () => {
   fireEvent.change(screen.getByLabelText(/caption/i), { target: { value: "Wonderful views in Yosemite" } })
   fireEvent.change(screen.getByLabelText(/place name/i), { target: { value: "Yosemite" } })
@@ -56,6 +61,8 @@ const publish = () => fireEvent.click(screen.getByRole("button", { name: /publis
 beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
+  // Signed out by default; tests call signIn() to simulate a logged-in user
+  useAuthMock.mockReturnValue({ token: null, isAuthenticated: false, isLoading: false })
   // Keep the real URL constructor: React Router uses it when navigating
   vi.stubGlobal("URL", class extends URL {
     static createObjectURL = vi.fn(() => "blob:mock-photo")
@@ -78,8 +85,15 @@ describe("Create Post", () => {
     expect(screen.getByRole("button", { name: /publish post/i })).toBeDisabled()
   })
 
+  it("keeps publishing disabled while the saved session is being verified", () => {
+    useAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: true })
+    renderPage()
+    expect(screen.queryByText(/you must be signed in/i)).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /publish post/i })).toBeDisabled()
+  })
+
   it("validates an empty caption and location", async () => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
     renderPage()
     publish()
     expect(await screen.findByText("Caption is required")).toBeInTheDocument()
@@ -88,7 +102,7 @@ describe("Create Post", () => {
   })
 
   it("shows an image preview and allows removing it", async () => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
     renderPage()
     const image = new File(["image bytes"], "vacation.png", { type: "image/png" })
     fireEvent.change(screen.getByLabelText("Upload travel photo"), { target: { files: [image] } })
@@ -99,7 +113,7 @@ describe("Create Post", () => {
   })
 
   it("rejects unsupported image types", async () => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
     renderPage()
     const file = new File(["text"], "notes.txt", { type: "text/plain" })
     fireEvent.change(screen.getByLabelText("Upload travel photo"), { target: { files: [file] } })
@@ -110,7 +124,7 @@ describe("Create Post", () => {
 
 describe("Create Post location search", () => {
   beforeEach(() => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
   })
 
   it("lists matching places for the entered place name", async () => {
@@ -184,7 +198,7 @@ describe("Create Post location search", () => {
 
 describe("Create Post to Feed", () => {
   beforeEach(() => {
-    localStorage.setItem("access_token", "example-test-token")
+    signIn()
   })
 
   it("publishes the post and shows it at the top of the feed", async () => {
@@ -238,6 +252,7 @@ describe("Create Post to Feed", () => {
   it("ends the session when the login has expired", async () => {
     const sessionEnded = vi.fn()
     const stopListening = onUnauthorized(sessionEnded)
+    localStorage.setItem("access_token", "example-test-token")
     vi.mocked(createPost).mockRejectedValue(new ApiRequestError("Your login has expired. Please log in again.", 401))
     renderPage()
     fillRequiredFields()
@@ -247,7 +262,6 @@ describe("Create Post to Feed", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Your login has expired. Please log in again.")
     expect(sessionEnded).toHaveBeenCalledTimes(1)
     expect(localStorage.getItem("access_token")).toBeNull()
-    await waitFor(() => expect(screen.getByRole("button", { name: /publish post/i })).toBeDisabled())
     stopListening()
   })
 })

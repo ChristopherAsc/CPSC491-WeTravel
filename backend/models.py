@@ -55,6 +55,10 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    post_likes: Mapped[list["PostLike"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Location(Base):
@@ -99,6 +103,10 @@ class Post(Base):
 
     user: Mapped["User"] = relationship(back_populates="posts")
     location: Mapped["Location"] = relationship(back_populates="posts")
+    post_likes: Mapped[list["PostLike"]] = relationship(
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
 
 
 class Itinerary(Base):
@@ -146,3 +154,19 @@ class SafetyReport(Base):
 
     user: Mapped["User"] = relationship(back_populates="safety_reports")
     location: Mapped["Location"] = relationship(back_populates="safety_reports")
+
+
+class PostLike(Base):
+    __tablename__ = "post_likes"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("posts.post_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    user: Mapped["User"] = relationship(back_populates="post_likes")
+    post: Mapped["Post"] = relationship(back_populates="post_likes")

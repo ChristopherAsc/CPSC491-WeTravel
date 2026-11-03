@@ -6,7 +6,7 @@ import { ImagePlus, LoaderCircle, MapPin, Search, Send, X } from "lucide-react"
 
 import { ApiRequestError, createPost } from "@/api_configs"
 import { handleUnauthorized } from "@/auth/authFetch"
-import { getToken } from "@/auth/tokenStorage"
+import { useAuth } from "@/auth/useAuth"
 import { PlaceSearchError, searchPlaces, type PlaceResult } from "@/lib/placeSearch"
 import { createPostSchema, type CreatePostFormData } from "@/schemas/createPostSchema"
 
@@ -19,7 +19,7 @@ const inputStyles = "mt-1 block w-full rounded-lg border border-gray-300 bg-whit
 
 function CreatePost() {
   const navigate = useNavigate()
-  const [isSignedIn, setIsSignedIn] = useState(() => getToken() !== null)
+  const { token, isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const [submitError, setSubmitError] = useState("")
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imageError, setImageError] = useState("")
@@ -121,9 +121,7 @@ function CreatePost() {
       return
     }
 
-    const token = getToken()
-    if (!token) {
-      setIsSignedIn(false)
+    if (!isAuthenticated || !token) {
       setSubmitError("Please log in before creating a post.")
       return
     }
@@ -147,10 +145,8 @@ function CreatePost() {
       navigate("/feed", { state: { publishedPostId: post.post_id } })
     } catch (error) {
       if (error instanceof ApiRequestError) {
-        if (error.status === 401) {
-          handleUnauthorized()
-          setIsSignedIn(false)
-        }
+        // Ends the session in AuthProvider, which signs the user out everywhere
+        if (error.status === 401) handleUnauthorized()
         setSubmitError(error.message)
         return
       }
@@ -165,7 +161,7 @@ function CreatePost() {
         <p className="mt-2 text-sm text-gray-600">Share a place you visited with the WeTravel community.</p>
       </div>
 
-      {!isSignedIn && (
+      {!isAuthLoading && !isAuthenticated && (
         <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
           You must be signed in to publish a post. <Link to="/login" className="font-semibold underline">Go to Login</Link>.
         </div>
@@ -274,7 +270,7 @@ function CreatePost() {
 
         {submitError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{submitError}</div>}
 
-        <button type="submit" disabled={isSubmitting || !isSignedIn} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D3B66] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#15558b] disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="submit" disabled={isSubmitting || isAuthLoading || !isAuthenticated} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D3B66] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#15558b] disabled:cursor-not-allowed disabled:opacity-50">
           <Send size={17} aria-hidden="true" />
           {isSubmitting ? "Publishing..." : "Publish post"}
         </button>

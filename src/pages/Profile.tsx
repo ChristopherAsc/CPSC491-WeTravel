@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { AlertCircle, CalendarDays, Compass, FileText, LogIn, Mail,MapPin, Plus, RefreshCw, ShieldCheck, UserRound,} from "lucide-react"
-import { getCurrentUser } from "@/api_configs"
+import { authFetch } from "@/auth/authFetch"
 
 type ProfileUser = {
   username: string
@@ -53,8 +53,13 @@ export default function Profile() {
     let active = true
     async function loadProfile() {
       try {
-        const response: unknown = await getCurrentUser(token as string)
-        const profile = parseUser(response)
+        // authFetch attaches the JWT and ends the session on a 401,
+        // so ProtectedRoute can send an expired session back to Login.
+        const response = await authFetch("/api/users/me")
+        if (!response.ok) {
+          throw new Error(`Failed to load current user: ${response.status}`)
+        }
+        const profile = parseUser(await response.json())
         if (active) {
           setUser(profile)
           setError("")
