@@ -151,20 +151,22 @@ jobs:
 
       - name: Backend dependency audit
         run: |
-          uv run --with pip-audit python -m pip_audit \
+          if uv run --with pip-audit python -m pip_audit \
             -r backend-requirements.txt \
             --no-deps --disable-pip \
-            --format json > backend-audit.json
-          result=$?
-          if [ ! -s backend-audit.json ]; then
-            echo "Backend audit report missing"
-            exit 1
+            --format json > backend-audit.json; then
+            echo "Backend audit completed with no reported vulnerabilities"
+          else
+            result=$?
+            if [ "$result" -eq 1 ]; then
+              echo "Backend vulnerabilities detected; see report"
+            else
+              echo "Backend audit execution failed"
+              exit "$result"
+            fi
           fi
-          if [ "$result" -gt 1 ]; then
-            echo "Backend audit execution failed"
-            exit "$result"
-          fi
-          echo "Backend audit completed; vulnerabilities may be present"
+
+          python3 -m json.tool backend-audit.json > /dev/null
 
       - name: Upload security scan reports
         if: always()
