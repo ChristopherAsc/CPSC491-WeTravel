@@ -111,3 +111,65 @@ jobs:
 
       - name: Verify requirements traceability matrix
         run: python scripts/verify_traceability.py
+
+  security-scan:
+    name: Dependency Security Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Frontend dependency audit
+        run: |
+          npm audit --json > frontend-audit.json
+          result=$?
+          if [ ! -s frontend-audit.json ]; then
+            echo "Frontend audit report missing"
+            exit 1
+          fi
+          if [ "$result" -gt 1 ]; then
+            echo "Frontend audit execution failed"
+            exit "$result"
+          fi
+          echo "Frontend audit completed; vulnerabilities may be present"
+
+      - name: Export backend dependencies
+        run: |
+          uv export --no-dev --no-emit-project \
+            -o backend-requirements.txt
+
+      - name: Backend dependency audit
+        run: |
+          uv run --with pip-audit python -m pip_audit \
+            -r backend-requirements.txt \
+            --no-deps --disable-pip \
+            --format json > backend-audit.json
+          result=$?
+          if [ ! -s backend-audit.json ]; then
+            echo "Backend audit report missing"
+            exit 1
+          fi
+          if [ "$result" -gt 1 ]; then
+            echo "Backend audit execution failed"
+            exit "$result"
+          fi
+          echo "Backend audit completed; vulnerabilities may be present"
+
+      - name: Upload security scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-security-reports
+          path: |
+            frontend-audit.json
+            backend-audit.json
+          if-no-files-found: warn
