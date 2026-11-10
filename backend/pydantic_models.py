@@ -1,7 +1,25 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    PlainSerializer,
+    field_validator,
+)
+
+# C08: 3 decimal places (about 110 m) is enough to place a map pin without
+# pinpointing a building. Rounding happens only when a response is sent.
+PUBLIC_COORDINATE_DECIMALS = 3
+
+PublicCoordinate = Annotated[
+    float,
+    PlainSerializer(
+        lambda value: round(value, PUBLIC_COORDINATE_DECIMALS), return_type=float
+    ),
+]
 
 
 class Location(BaseModel):
@@ -23,8 +41,16 @@ class LocationResponse(BaseModel):
 
     location_id: int
     name: str
-    latitude: float
-    longitude: float
+    latitude: PublicCoordinate
+    longitude: PublicCoordinate
+
+
+class PostLocationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    latitude: PublicCoordinate
+    longitude: PublicCoordinate
 
 
 class PostCreate(BaseModel):
@@ -48,7 +74,7 @@ class PostResponse(BaseModel):
     user_id: int
     caption: str
     media_url: Optional[str] = None
-    location: Location
+    location: PostLocationResponse
     created_at: datetime
     like_count: int
 
@@ -94,15 +120,22 @@ class SafetyReportCreate(BaseModel):
         return value
 
 
-class SafetyReportResponse(BaseModel):
+class PublicSafetyReportResponse(BaseModel):
+    """Safety report as shown on the public map, without the reporter's identity."""
+
     model_config = ConfigDict(from_attributes=True)
 
     report_id: int
-    user_id: int
     report_type: str
     location: LocationResponse
     description: Optional[str] = None
     created_at: datetime
+
+
+class SafetyReportResponse(PublicSafetyReportResponse):
+    """Returned only to the reporter who created the report."""
+
+    user_id: int
 
 
 class UserRegistration(BaseModel):

@@ -81,9 +81,10 @@ def test_get_posts_integration_smoke(client, db, seeded_user):
     assert "created_at" in returned_post
 
     # Verify the Post -> Location ORM relationship serialized through Pydantic.
+    # Public coordinates are rounded to 3 decimals (C08).
     assert returned_post["location"]["name"] == "Los Angeles, California"
-    assert returned_post["location"]["latitude"] == 34.0522
-    assert returned_post["location"]["longitude"] == -118.2437
+    assert returned_post["location"]["latitude"] == 34.052
+    assert returned_post["location"]["longitude"] == -118.244
 
 
 def test_get_posts_returns_empty_list_when_no_posts_exist(client):
@@ -312,7 +313,8 @@ def test_created_post_appears_first_in_feed_integration(client):
     Authenticated POST /api/posts
         -> post and location persisted
         -> GET /api/posts returns the new post first
-        -> every submitted field round-trips unchanged
+        -> every submitted field round-trips unchanged, except coordinates,
+           which are publicly rounded to 3 decimals (C08)
     """
 
     user_id, headers = register_and_login(client, "create_feed_user")
@@ -357,7 +359,11 @@ def test_created_post_appears_first_in_feed_integration(client):
     assert feed_post["user_id"] == user_id
     assert feed_post["caption"] == newest_post["caption"]
     assert feed_post["media_url"] is None
-    assert feed_post["location"] == newest_post["location"]
+    assert feed_post["location"] == {
+        "name": newest_post["location"]["name"],
+        "latitude": 37.775,
+        "longitude": -122.419,
+    }
 
     detail_response = client.get(f"/api/posts/{created['post_id']}")
     assert detail_response.status_code == 200
