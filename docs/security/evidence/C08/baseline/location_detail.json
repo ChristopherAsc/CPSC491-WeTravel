@@ -1,0 +1,11 @@
+{
+  "request": "GET /api/locations/{location_id}",
+  "authenticated": false,
+  "status": 200,
+  "body": {
+    "location_id": 1,
+    "name": "C08 synthetic viewpoint",
+    "latitude": 34.0522351,
+    "longitude": -118.2436849
+  }
+}

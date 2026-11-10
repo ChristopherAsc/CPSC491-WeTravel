@@ -7,6 +7,8 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 load_dotenv()
 
 DATABASE_URL = os.environ["DATABASE_URL"]
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
+
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 

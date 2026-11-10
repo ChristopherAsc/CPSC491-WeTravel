@@ -25,11 +25,24 @@ const testUser = {
   email: "tester@example.com",
 }
 
+function stubFetch(status: number, body: unknown = {}) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body,
+    })
+  )
+}
+
 function Probe() {
-  const { user, isAuthenticated, login, logout } = useAuth()
+  const { user, isAuthenticated, isLoading, login, logout } = useAuth()
 
   return (
     <div>
+      <p>{isLoading ? "loading" : "ready"}</p>
+
       <p>{isAuthenticated ? `user:${user?.username ?? "none"}` : "anonymous"}</p>
 
       <button
@@ -65,32 +78,63 @@ afterEach(() => {
 
 describe("AuthProvider", () => {
   it("starts logged out when there is no saved token", () => {
+    stubFetch(200)
+
     renderProvider()
 
     expect(screen.getByText("anonymous")).toBeTruthy()
-    expect(getCurrentUser).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it("restores the session from a saved token", async () => {
     setToken("saved-token")
-    vi.mocked(getCurrentUser).mockResolvedValue(testUser)
+    stubFetch(200, testUser)
 
     renderProvider()
 
     expect(await screen.findByText("user:tester")).toBeTruthy()
-    expect(getCurrentUser).toHaveBeenCalledWith("saved-token")
+
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+
+    expect(String(url)).toContain("/api/users/me")
+    expect(new Headers(options?.headers).get("Authorization")).toBe(
+      "Bearer saved-token"
+    )
   })
 
-  it("clears a saved token that the backend rejects", async () => {
+  it("clears a saved token that the backend rejects with 401", async () => {
     setToken("bad-token")
-    vi.mocked(getCurrentUser).mockRejectedValue(
-      new Error("Failed to load current user: 401")
-    )
+    stubFetch(401)
 
     renderProvider()
 
     expect(await screen.findByText("anonymous")).toBeTruthy()
     expect(getToken()).toBeNull()
+  })
+
+  it("keeps the saved token when the backend returns 500", async () => {
+    setToken("saved-token")
+    stubFetch(500)
+
+    renderProvider()
+
+    expect(await screen.findByText("ready")).toBeTruthy()
+    expect(getToken()).toBe("saved-token")
+    expect(screen.getByText("user:none")).toBeTruthy()
+  })
+
+  it("keeps the saved token when the backend cannot be reached", async () => {
+    setToken("saved-token")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch"))
+    )
+
+    renderProvider()
+
+    expect(await screen.findByText("ready")).toBeTruthy()
+    expect(getToken()).toBe("saved-token")
+    expect(screen.getByText("user:none")).toBeTruthy()
   })
 
   it("login stores the token and loads the user", async () => {
@@ -119,7 +163,7 @@ describe("AuthProvider", () => {
 
   it("logout clears the token and the user", async () => {
     setToken("saved-token")
-    vi.mocked(getCurrentUser).mockResolvedValue(testUser)
+    stubFetch(200, testUser)
 
     renderProvider()
 
@@ -133,16 +177,13 @@ describe("AuthProvider", () => {
 
   it("ends the session when authFetch gets a 401", async () => {
     setToken("saved-token")
-    vi.mocked(getCurrentUser).mockResolvedValue(testUser)
+    stubFetch(200, testUser)
 
     renderProvider()
 
     expect(await screen.findByText("user:tester")).toBeTruthy()
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 401 })
-    )
+    stubFetch(401)
 
     await act(async () => {
       await authFetch("/api/posts")
