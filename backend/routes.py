@@ -86,6 +86,8 @@ def get_current_user(
             token,
             SECRET_KEY,
             algorithms=[ALGORITHM],
+            # Fix implementation for SOC compliance
+            options={"require": ["exp", "sub"]},
         )
 
         user_id = payload.get("sub")
@@ -477,6 +479,8 @@ def create_itinerary(
     new_itinerary = Itinerary(
         user_id=current_user.user_id,
         name=itinerary_data.name,
+        start_date=itinerary_data.start_date,
+        end_date=itinerary_data.end_date,
     )
 
     try:

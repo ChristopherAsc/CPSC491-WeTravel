@@ -1,63 +1,67 @@
-import { cleanup, render, screen } from "@testing-library/react"
-import { MemoryRouter, Route, Routes } from "react-router-dom"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-import ProtectedRoute from "@/auth/ProtectedRoute"
-
-const { useAuthMock } = vi.hoisted(() => ({ useAuthMock: vi.fn() }))
+import ProtectedRoute from "@/auth/ProtectedRoute";
+import { useAuth } from "@/auth/useAuth";
 
 vi.mock("@/auth/useAuth", () => ({
-  useAuth: useAuthMock,
-}))
+  useAuth: vi.fn(),
+}));
 
-function renderAt(path: string) {
-  render(
-    <MemoryRouter initialEntries={[path]}>
+function renderProtectedRoute() {
+  return render(
+    <MemoryRouter initialEntries={["/profile"]}>
       <Routes>
-        <Route path="/login" element={<p>Login page</p>} />
-
+        <Route path="/login" element={<p>Login Page</p>} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/profile" element={<p>Profile page</p>} />
+          <Route path="/profile" element={<p>Profile Page</p>} />
         </Route>
       </Routes>
-    </MemoryRouter>
-  )
+    </MemoryRouter>,
+  );
 }
 
-beforeEach(() => {
-  vi.resetAllMocks()
-})
-
 afterEach(() => {
-  cleanup()
-})
+  cleanup();
+  vi.clearAllMocks();
+});
 
-describe("ProtectedRoute", () => {
-  it("redirects guests to the login page", () => {
-    useAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false })
+describe("ProtectedRoute - SOC 2 C03", () => {
+  it("redirects unauthenticated users to login", async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    } as ReturnType<typeof useAuth>);
 
-    renderAt("/profile")
+    renderProtectedRoute();
 
-    expect(screen.getByText("Login page")).toBeTruthy()
-    expect(screen.queryByText("Profile page")).toBeNull()
-  })
+    expect(await screen.findByText("Login Page")).toBeTruthy();
+    expect(screen.queryByText("Profile Page")).toBeNull();
+  });
 
-  it("waits while a saved session is being verified", () => {
-    useAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: true })
+  it("allows authenticated users to access protected pages", async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    } as ReturnType<typeof useAuth>);
 
-    renderAt("/profile")
+    renderProtectedRoute();
 
-    expect(screen.getByText("Checking your session...")).toBeTruthy()
-    expect(screen.queryByText("Profile page")).toBeNull()
-    expect(screen.queryByText("Login page")).toBeNull()
-  })
+    expect(await screen.findByText("Profile Page")).toBeTruthy();
+    expect(screen.queryByText("Login Page")).toBeNull();
+  });
 
-  it("shows the page to an authenticated user", () => {
-    useAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false })
+  it("does not render protected content during session validation", () => {
+    vi.mocked(useAuth).mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+    } as ReturnType<typeof useAuth>);
 
-    renderAt("/profile")
+    renderProtectedRoute();
 
-    expect(screen.getByText("Profile page")).toBeTruthy()
-    expect(screen.queryByText("Login page")).toBeNull()
-  })
-})
+    expect(screen.getByText("Checking your session...")).toBeTruthy();
+    expect(screen.queryByText("Profile Page")).toBeNull();
+    expect(screen.queryByText("Login Page")).toBeNull();
+  });
+});
