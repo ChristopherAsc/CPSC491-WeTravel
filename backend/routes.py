@@ -24,6 +24,7 @@ from pydantic_models import (
     UserRegistration,
     UserResponse,
 )
+from security_events import record_failed_login_attempt
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
@@ -195,6 +196,7 @@ def login(
         login_credentials.password,
         user.hashed_password,
     ):
+        record_failed_login_attempt(login_credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",

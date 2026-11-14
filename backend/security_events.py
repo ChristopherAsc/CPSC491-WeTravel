@@ -23,6 +23,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from failed_login_detector import FailedLoginDetector
+
 # ---------------------------------------------------------
 # Constants
 # ---------------------------------------------------------
@@ -62,6 +64,12 @@ HMAC_KEY_ENV = "SECURITY_LOG_HMAC_KEY"
 EventData = dict[str, str | int]
 
 security_logger = logging.getLogger(SECURITY_LOGGER_NAME)
+
+if not security_logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
+    security_logger.addHandler(_handler)
+security_logger.setLevel(logging.INFO)
 
 
 # ---------------------------------------------------------
@@ -285,3 +293,30 @@ def log_failed_login(
     except Exception:  # noqa: BLE001 - logging must never break login
         security_logger.error("security_event_emit_failed")
         return None
+
+
+# Shared in-memory detector used by the login endpoint.
+failed_login_detector = FailedLoginDetector()
+
+
+def record_failed_login_attempt(
+    username: str,
+    detector: FailedLoginDetector | None = None,
+) -> None:
+    """Log a failed login and raise a threshold alert. Never raises."""
+
+    active_detector = detector if detector is not None else failed_login_detector
+
+    try:
+        event = log_failed_login(username)
+        if event is None:
+            return
+
+        actor_key = str(event["actor_key"])
+        if active_detector.record_failure(actor_key):
+            emit_threshold_alert(
+                actor_key,
+                failure_count=active_detector.failure_count(actor_key),
+            )
+    except Exception:  # noqa: BLE001 - logging must never break login
+        security_logger.error("security_alert_pipeline_failed")
