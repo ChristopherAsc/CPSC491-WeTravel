@@ -7,9 +7,9 @@ check that each response contains only the fields documented as public in
 docs/security/C08-travel-data-privacy-assessment.md. Synthetic "canary" values
 are seeded into private fields so a leak anywhere in a response is detectable.
 
-Tests marked xfail(strict=True) record open findings from the Sprint 4
-baseline. They are expected to fail until the finding is fixed; once a fix
-makes one pass, strict mode reports it as a failure so the marker is removed.
+Open findings are recorded as xfail(strict=True) tests naming the finding ID.
+Findings C08-F1 and C08-F2 from the Sprint 4 baseline are fixed, so their
+markers have been removed and these tests now guard against regressions.
 """
 
 import json
@@ -22,10 +22,11 @@ from fastapi.routing import APIRoute
 from models import Itinerary, Location, Post, SafetyReport, User
 from pydantic import BaseModel
 from pydantic_models import (
+    PUBLIC_COORDINATE_DECIMALS,
     LocationResponse,
     PostResponse,
+    PublicSafetyReportResponse,
     PublicUserResponse,
-    SafetyReportResponse,
 )
 from routes import get_current_user, hash_password, router
 
@@ -93,18 +94,6 @@ REVIEWED_PASS_THROUGH_ROUTES = {
     "/locations/search/suggest",
     "/locations/search/retrieve/{mapbox_id:path}",
 }
-
-# About 110 m, enough to place a map pin without pinpointing a building
-PUBLIC_COORDINATE_DECIMALS = 3
-
-C08_F1_REPORTER_ID = pytest.mark.xfail(
-    strict=True,
-    reason="C08-F1: public safety reports expose the reporter's user_id",
-)
-C08_F2_PRECISE_COORDINATES = pytest.mark.xfail(
-    strict=True,
-    reason="C08-F2: public responses return full-precision coordinates",
-)
 
 # =========================================================
 # 2. Synthetic Test Data With Private Canary Values
@@ -231,13 +220,7 @@ def requires_login(route):
 
 
 @pytest.mark.requirement("C08", "RISK-03")
-@pytest.mark.parametrize(
-    "endpoint",
-    [
-        *(name for name in PUBLIC_ENDPOINTS if name != "safety_reports"),
-        pytest.param("safety_reports", marks=C08_F1_REPORTER_ID),
-    ],
-)
+@pytest.mark.parametrize("endpoint", PUBLIC_ENDPOINTS)
 def test_c08_t1_public_response_matches_allowlist(client, c08_data, endpoint):
     """An anonymous response returns exactly the documented public fields."""
     body = get_public(client, c08_data, endpoint).json()
@@ -291,26 +274,29 @@ def test_c08_t2_public_response_reveals_no_private_data(client, c08_data, endpoi
 
 @pytest.mark.requirement("C08", "RISK-03")
 @pytest.mark.parametrize(
-    "endpoint",
-    [
-        pytest.param(name, marks=C08_F2_PRECISE_COORDINATES)
-        for name in PUBLIC_ENDPOINTS
-        if name != "public_profile"
-    ],
+    "endpoint", [name for name in PUBLIC_ENDPOINTS if name != "public_profile"]
 )
 def test_c08_t3_public_coordinates_are_coarsened(client, c08_data, endpoint):
-    """Public coordinates carry at most PUBLIC_COORDINATE_DECIMALS decimals."""
+    """Public coordinates are the stored values rounded to ~110 m."""
     coordinates = coordinate_values(get_public(client, c08_data, endpoint).json())
     too_precise = [
         value
         for value in coordinates
         if round(value, PUBLIC_COORDINATE_DECIMALS) != value
     ]
+    correctly_rounded = {
+        round(value, PUBLIC_COORDINATE_DECIMALS)
+        for value in POST_COORDINATES + REPORT_COORDINATES
+    }
 
     assert coordinates, f"[C08] {endpoint} returned no coordinates to check"
     assert (
         too_precise == []
     ), f"[C08] {endpoint} returns coordinates finer than ~110 m: {too_precise}"
+    assert set(coordinates) <= correctly_rounded, (
+        f"[C08] {endpoint} coordinates are not the stored location rounded "
+        f"to {PUBLIC_COORDINATE_DECIMALS} decimals: {coordinates}"
+    )
 
 
 # =========================================================
@@ -349,11 +335,14 @@ def test_c08_t4_every_public_route_declares_a_response_model():
         (PostResponse, POST_FIELDS),
         (PublicUserResponse, PROFILE_FIELDS),
         (LocationResponse, LOCATION_FIELDS),
-        pytest.param(
-            SafetyReportResponse, SAFETY_REPORT_FIELDS, marks=C08_F1_REPORTER_ID
-        ),
+        (PublicSafetyReportResponse, SAFETY_REPORT_FIELDS),
     ],
-    ids=["PostResponse", "PublicUserResponse", "LocationResponse", "SafetyReport"],
+    ids=[
+        "PostResponse",
+        "PublicUserResponse",
+        "LocationResponse",
+        "PublicSafetyReportResponse",
+    ],
 )
 def test_c08_t4_public_schema_matches_allowlist(model, allowed):
     """Schema snapshot: public response models declare only allowlisted fields."""
