@@ -1,3 +1,5 @@
+import { authFetch } from "@/auth/authFetch"
+
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL
 
@@ -165,4 +167,58 @@ export async function createPost(payload: PostCreatePayload, token: string): Pro
   }
 
   return (await response.json()) as CreatedPost
+}
+
+
+
+export type SafetyReportPayload = {
+  report_type: string
+  description: string
+  location: {
+    name: string
+    latitude: number
+    longitude: number
+  }
+}
+
+export type SafetyReport = {
+  report_id: number
+  report_type: string
+  description: string
+  location: SafetyReportPayload["location"]
+  created_at: string
+}
+
+export async function createSafetyReport(
+  payload: SafetyReportPayload
+): Promise<SafetyReport> {
+  const response = await authFetch("/api/safety-reports", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw new ApiRequestError(
+      await getErrorMessage(response, "Failed to create safety report"),
+      response.status
+    )
+  }
+
+  return (await response.json()) as SafetyReport
+}
+
+export async function getSafetyReports(): Promise<SafetyReport[]> {
+  const response = await fetch(`${API_BASE_URL}/api/safety-reports`)
+
+  if (!response.ok) {
+    throw new ApiRequestError(
+      await getErrorMessage(response, "Failed to load safety reports"),
+      response.status
+    )
+  }
+
+  return (await response.json()) as SafetyReport[]
 }

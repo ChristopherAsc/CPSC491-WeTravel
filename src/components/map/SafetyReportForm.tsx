@@ -1,22 +1,50 @@
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
+import { createSafetyReport } from "@/api_configs"
 import {
   safetyReportSchema,
   type SafetyReportFormData,
 } from "@/schemas/safetyReportSchema"
 
 export function SafetyReportForm() {
+  const [success, setSuccess] = useState("")
+  const [submitError, setSubmitError] = useState("")
+
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    reset,
+    formState: { errors, isSubmitting },
   } = useForm<SafetyReportFormData>({
     resolver: zodResolver(safetyReportSchema),
   })
 
-  function onSubmit(data: SafetyReportFormData) {
-    console.log("Safety report:", data)
+  async function onSubmit(data: SafetyReportFormData) {
+    setSuccess("")
+    setSubmitError("")
+
+    try {
+      await createSafetyReport({
+        report_type: data.reportType,
+        description: data.description,
+        location: {
+          name: data.location,
+          latitude: Number(data.latitude),
+          longitude: Number(data.longitude),
+        },
+      })
+
+      setSuccess("Safety report submitted successfully!")
+      reset()
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit safety report."
+      )
+    }
   }
 
   return (
@@ -24,15 +52,12 @@ export function SafetyReportForm() {
       onSubmit={handleSubmit(onSubmit)}
       className="space-y-4 rounded-lg border p-4"
     >
-      <div>
-        <h2 className="text-xl font-semibold">Report a Safety Issue</h2>
-      </div>
+      <h2 className="text-xl font-semibold">
+        Report a Safety Issue
+      </h2>
 
       <div className="space-y-1">
-        <label htmlFor="reportType" className="text-sm font-medium">
-          Report Type
-        </label>
-
+        <label htmlFor="reportType">Report Type</label>
         <select
           id="reportType"
           {...register("reportType")}
@@ -44,7 +69,6 @@ export function SafetyReportForm() {
           <option value="unsafe-area">Unsafe Area</option>
           <option value="other">Other</option>
         </select>
-
         {errors.reportType && (
           <p className="text-sm text-destructive">
             {errors.reportType.message}
@@ -53,18 +77,14 @@ export function SafetyReportForm() {
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="location" className="text-sm font-medium">
-          Location
-        </label>
-
+        <label htmlFor="location">Location</label>
         <input
           id="location"
           type="text"
-          placeholder="Enter location"
+          placeholder="e.g. Yosemite National Park"
           {...register("location")}
           className="w-full rounded-md border bg-background p-2"
         />
-
         {errors.location && (
           <p className="text-sm text-destructive">
             {errors.location.message}
@@ -73,17 +93,47 @@ export function SafetyReportForm() {
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="dateTime" className="text-sm font-medium">
-          Date and Time
-        </label>
+        <label htmlFor="latitude">Latitude</label>
+        <input
+          id="latitude"
+          type="number"
+          step="any"
+          placeholder="e.g. 37.8651"
+          {...register("latitude")}
+          className="w-full rounded-md border bg-background p-2"
+        />
+        {errors.latitude && (
+          <p className="text-sm text-destructive">
+            {errors.latitude.message}
+          </p>
+        )}
+      </div>
 
+      <div className="space-y-1">
+        <label htmlFor="longitude">Longitude</label>
+        <input
+          id="longitude"
+          type="number"
+          step="any"
+          placeholder="e.g. -119.5383"
+          {...register("longitude")}
+          className="w-full rounded-md border bg-background p-2"
+        />
+        {errors.longitude && (
+          <p className="text-sm text-destructive">
+            {errors.longitude.message}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="dateTime">Date and Time</label>
         <input
           id="dateTime"
           type="datetime-local"
           {...register("dateTime")}
           className="w-full rounded-md border bg-background p-2"
         />
-
         {errors.dateTime && (
           <p className="text-sm text-destructive">
             {errors.dateTime.message}
@@ -92,10 +142,7 @@ export function SafetyReportForm() {
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="description" className="text-sm font-medium">
-          Description
-        </label>
-
+        <label htmlFor="description">Description</label>
         <textarea
           id="description"
           rows={4}
@@ -103,7 +150,6 @@ export function SafetyReportForm() {
           {...register("description")}
           className="w-full resize-none rounded-md border bg-background p-2"
         />
-
         {errors.description && (
           <p className="text-sm text-destructive">
             {errors.description.message}
@@ -111,11 +157,24 @@ export function SafetyReportForm() {
         )}
       </div>
 
+      {success && (
+        <p role="status" className="text-sm text-green-600">
+          {success}
+        </p>
+      )}
+
+      {submitError && (
+        <p role="alert" className="text-sm text-destructive">
+          {submitError}
+        </p>
+      )}
+
       <button
         type="submit"
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        disabled={isSubmitting}
+        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
       >
-        Submit Report
+        {isSubmitting ? "Submitting..." : "Submit Report"}
       </button>
     </form>
   )
