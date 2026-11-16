@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react"
 import mapboxgl from "mapbox-gl"
 
@@ -11,12 +12,18 @@ type SafetyLayerProps = {
   refreshKey?: number
 }
 
+type SafetyGroup = {
+  longitude: number
+  latitude: number
+  locationName: string
+  reports: SafetyReport[]
+}
+
 export function SafetyLayer({
   map,
   refreshKey = 0,
 }: SafetyLayerProps) {
   const [reports, setReports] = useState<SafetyReport[]>([])
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -27,15 +34,10 @@ export function SafetyLayer({
 
         if (!cancelled) {
           setReports(data)
-          setError(null)
         }
-      } catch (err) {
+      } catch (error) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load safety reports"
-          )
+          console.error("Failed to load safety reports:", error)
         }
       }
     }
@@ -48,53 +50,92 @@ export function SafetyLayer({
   }, [refreshKey])
 
   useEffect(() => {
-    const markers = reports
-      .filter(
-        (report) =>
-          report.location &&
-          Number.isFinite(report.location.latitude) &&
-          Number.isFinite(report.location.longitude)
-      )
-      .map((report) => {
-        const element = document.createElement("div")
+    // Group reports by their coordinates.
+    const groups = new Map<string, SafetyGroup>()
 
-        element.className =
-          "h-4 w-4 rounded-full border-2 border-white bg-red-500 shadow"
+    for (const report of reports) {
+      const location = report.location
 
-        const popupContent = document.createElement("div")
+      if (
+        !location ||
+        !Number.isFinite(location.latitude) ||
+        !Number.isFinite(location.longitude) ||
+        location.latitude < -90 ||
+        location.latitude > 90 ||
+        location.longitude < -180 ||
+        location.longitude > 180
+      ) {
+        continue
+      }
 
-        const title = document.createElement("strong")
-        title.textContent = report.report_type
+      const key = `${location.latitude},${location.longitude}`
+
+      const existing = groups.get(key)
+
+      if (existing) {
+        existing.reports.push(report)
+      } else {
+        groups.set(key, {
+          longitude: location.longitude,
+          latitude: location.latitude,
+          locationName: location.name,
+          reports: [report],
+        })
+      }
+    }
+
+    // Create one marker for each coordinate group.
+    const markers = Array.from(groups.values()).map((group) => {
+      const element = document.createElement("div")
+
+      element.className =
+        "flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-xs font-bold text-white shadow"
+
+      element.textContent = String(group.reports.length)
+      element.title = `${group.reports.length} safety report(s)`
+
+      const popupContent = document.createElement("div")
+      popupContent.className = "space-y-2"
+
+      const heading = document.createElement("h3")
+      heading.className = "font-semibold"
+      heading.textContent = group.locationName
+
+      const count = document.createElement("p")
+      count.textContent =
+        `${group.reports.length} safety incident(s) reported`
+
+      popupContent.append(heading, count)
+
+      for (const report of group.reports) {
+        const reportContainer = document.createElement("div")
+        reportContainer.className = "border-t pt-2"
+
+        const reportType = document.createElement("strong")
+        reportType.textContent = report.report_type
 
         const description = document.createElement("p")
         description.textContent = report.description
 
-        const location = document.createElement("p")
-        location.textContent = report.location.name
+        reportContainer.append(reportType, description)
+        popupContent.append(reportContainer)
+      }
 
-        popupContent.append(title, description, location)
+      const popup = new mapboxgl.Popup({
+        offset: 24,
+        maxWidth: "320px",
+      }).setDOMContent(popupContent)
 
-        const popup = new mapboxgl.Popup({
-          offset: 24,
-        }).setDOMContent(popupContent)
-
-        return new mapboxgl.Marker({ element })
-          .setLngLat([
-            report.location.longitude,
-            report.location.latitude,
-          ])
-          .setPopup(popup)
-          .addTo(map)
-      })
+      return new mapboxgl.Marker({ element })
+        .setLngLat([group.longitude, group.latitude])
+        .setPopup(popup)
+        .addTo(map)
+    })
 
     return () => {
       markers.forEach((marker) => marker.remove())
     }
   }, [map, reports])
-
-  if (error) {
-    console.error("Safety reports:", error)
-  }
 
   return null
 }
