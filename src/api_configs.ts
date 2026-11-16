@@ -1,7 +1,6 @@
 import { authFetch } from "@/auth/authFetch"
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL
+export const API_BASE_URL = import.meta.env.VITE_API_URL
 
 export async function healthCheck() {
   const response = await fetch(`${API_BASE_URL}/health`)
@@ -78,11 +77,10 @@ export async function getCurrentUser(token: string) {
   return response.json()
 }
 
-
 export async function registerUser(
   email: string,
   username: string,
-  password: string
+  password: string,
 ) {
   const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
     method: "POST",
@@ -132,7 +130,10 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function createPost(payload: PostCreatePayload, token: string): Promise<CreatedPost> {
+export async function createPost(
+  payload: PostCreatePayload,
+  token: string,
+): Promise<CreatedPost> {
   const response = await fetch(`${API_BASE_URL}/api/posts`, {
     method: "POST",
     headers: {
@@ -146,30 +147,37 @@ export async function createPost(payload: PostCreatePayload, token: string): Pro
     // FastAPI returns a string for most errors and an array of validation
     // issues for 422 responses. Do not display a raw object in the UI.
     const body: unknown = await response.json().catch(() => null)
-    const detail = body && typeof body === "object" && "detail" in body
-      ? body.detail
-      : null
-    const message = typeof detail === "string"
-      ? detail
-      : Array.isArray(detail)
-        ? detail.map((issue: unknown) => {
-            if (issue && typeof issue === "object" && "msg" in issue && typeof issue.msg === "string") {
-              return issue.msg
-            }
-            return "Invalid request"
-          }).join("; ")
-        : `Post submission failed (${response.status})`
+    const detail =
+      body && typeof body === "object" && "detail" in body ? body.detail : null
+    const message =
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail
+              .map((issue: unknown) => {
+                if (
+                  issue &&
+                  typeof issue === "object" &&
+                  "msg" in issue &&
+                  typeof issue.msg === "string"
+                ) {
+                  return issue.msg
+                }
+                return "Invalid request"
+              })
+              .join("; ")
+          : `Post submission failed (${response.status})`
 
     throw new ApiRequestError(
-      response.status === 401 ? "Your login has expired. Please log in again." : message,
+      response.status === 401
+        ? "Your login has expired. Please log in again."
+        : message,
       response.status,
     )
   }
 
   return (await response.json()) as CreatedPost
 }
-
-
 
 export type SafetyReportPayload = {
   report_type: string
@@ -190,7 +198,7 @@ export type SafetyReport = {
 }
 
 export async function createSafetyReport(
-  payload: SafetyReportPayload
+  payload: SafetyReportPayload,
 ): Promise<SafetyReport> {
   const response = await authFetch("/api/safety-reports", {
     method: "POST",
@@ -203,7 +211,7 @@ export async function createSafetyReport(
   if (!response.ok) {
     throw new ApiRequestError(
       await getErrorMessage(response, "Failed to create safety report"),
-      response.status
+      response.status,
     )
   }
 
@@ -216,7 +224,7 @@ export async function getSafetyReports(): Promise<SafetyReport[]> {
   if (!response.ok) {
     throw new ApiRequestError(
       await getErrorMessage(response, "Failed to load safety reports"),
-      response.status
+      response.status,
     )
   }
 

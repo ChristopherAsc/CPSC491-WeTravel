@@ -12,9 +12,7 @@ type SafetyReportFormProps = {
   onSuccess?: () => void
 }
 
-export function SafetyReportForm({
-  onSuccess,
-}: SafetyReportFormProps) {
+export function SafetyReportForm({ onSuccess }: SafetyReportFormProps) {
   const [success, setSuccess] = useState("")
   const [submitError, setSubmitError] = useState("")
 
@@ -49,7 +47,7 @@ export function SafetyReportForm({
       setSubmitError(
         error instanceof Error
           ? error.message
-          : "Failed to submit safety report."
+          : "Failed to submit safety report.",
       )
     }
   }
@@ -59,9 +57,7 @@ export function SafetyReportForm({
       onSubmit={handleSubmit(onSubmit)}
       className="space-y-4 rounded-lg border p-4"
     >
-      <h2 className="text-xl font-semibold">
-        Report a Safety Issue
-      </h2>
+      <h2 className="text-xl font-semibold">Report a Safety Issue</h2>
 
       <div className="space-y-1">
         <label htmlFor="reportType">Report Type</label>
@@ -93,9 +89,7 @@ export function SafetyReportForm({
           className="w-full rounded-md border bg-background p-2"
         />
         {errors.location && (
-          <p className="text-sm text-destructive">
-            {errors.location.message}
-          </p>
+          <p className="text-sm text-destructive">{errors.location.message}</p>
         )}
       </div>
 
@@ -110,9 +104,7 @@ export function SafetyReportForm({
           className="w-full rounded-md border bg-background p-2"
         />
         {errors.latitude && (
-          <p className="text-sm text-destructive">
-            {errors.latitude.message}
-          </p>
+          <p className="text-sm text-destructive">{errors.latitude.message}</p>
         )}
       </div>
 
@@ -127,9 +119,7 @@ export function SafetyReportForm({
           className="w-full rounded-md border bg-background p-2"
         />
         {errors.longitude && (
-          <p className="text-sm text-destructive">
-            {errors.longitude.message}
-          </p>
+          <p className="text-sm text-destructive">{errors.longitude.message}</p>
         )}
       </div>
 
@@ -142,9 +132,7 @@ export function SafetyReportForm({
           className="w-full rounded-md border bg-background p-2"
         />
         {errors.dateTime && (
-          <p className="text-sm text-destructive">
-            {errors.dateTime.message}
-          </p>
+          <p className="text-sm text-destructive">{errors.dateTime.message}</p>
         )}
       </div>
 

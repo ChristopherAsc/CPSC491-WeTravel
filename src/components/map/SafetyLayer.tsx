@@ -1,11 +1,7 @@
-
 import { useEffect, useState } from "react"
 import mapboxgl from "mapbox-gl"
 
-import {
-  getSafetyReports,
-  type SafetyReport,
-} from "@/api_configs"
+import { getSafetyReports, type SafetyReport } from "@/api_configs"
 
 type SafetyLayerProps = {
   map: mapboxgl.Map
@@ -19,10 +15,7 @@ type SafetyGroup = {
   reports: SafetyReport[]
 }
 
-export function SafetyLayer({
-  map,
-  refreshKey = 0,
-}: SafetyLayerProps) {
+export function SafetyLayer({ map, refreshKey = 0 }: SafetyLayerProps) {
   const [reports, setReports] = useState<SafetyReport[]>([])
 
   useEffect(() => {
@@ -102,8 +95,7 @@ export function SafetyLayer({
       heading.textContent = group.locationName
 
       const count = document.createElement("p")
-      count.textContent =
-        `${group.reports.length} safety incident(s) reported`
+      count.textContent = `${group.reports.length} safety incident(s) reported`
 
       popupContent.append(heading, count)
 
