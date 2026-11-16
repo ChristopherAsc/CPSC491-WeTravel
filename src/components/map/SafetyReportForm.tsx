@@ -8,7 +8,13 @@ import {
   type SafetyReportFormData,
 } from "@/schemas/safetyReportSchema"
 
-export function SafetyReportForm() {
+type SafetyReportFormProps = {
+  onSuccess?: () => void
+}
+
+export function SafetyReportForm({
+  onSuccess,
+}: SafetyReportFormProps) {
   const [success, setSuccess] = useState("")
   const [submitError, setSubmitError] = useState("")
 
@@ -38,6 +44,7 @@ export function SafetyReportForm() {
 
       setSuccess("Safety report submitted successfully!")
       reset()
+      onSuccess?.()
     } catch (error) {
       setSubmitError(
         error instanceof Error

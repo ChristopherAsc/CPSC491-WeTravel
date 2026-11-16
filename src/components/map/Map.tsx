@@ -4,7 +4,11 @@ import "mapbox-gl/dist/mapbox-gl.css"
 import { SafetyLayer } from "@/components/map/SafetyLayer"
 import { MarkerLayer } from "@/components/map/MarkerLayer"
 
-export function Map() {
+type MapProps = {
+  refreshKey?: number
+}
+
+export function Map({ refreshKey = 0 }: MapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
 
@@ -71,7 +75,10 @@ export function Map() {
       {mapInstance && (
   <>
     <MarkerLayer map={mapInstance} />
-    <SafetyLayer map={mapInstance} />
+    <SafetyLayer
+  map={mapInstance}
+  refreshKey={refreshKey}
+/>
   </>
 )}
     </div>
