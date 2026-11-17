@@ -345,8 +345,7 @@ def test_add_destination_unknown_itinerary(
 ):
     """Verify adding to a nonexistent itinerary returns HTTP 404."""
     response = client.post(
-        f"/api/itineraries/999999999/destinations/"
-        f"{itinerary_locations[0].location_id}",
+        f"/api/itineraries/999999999/destinations/{itinerary_locations[0].location_id}",
         headers=itinerary_headers[0],
     )
 

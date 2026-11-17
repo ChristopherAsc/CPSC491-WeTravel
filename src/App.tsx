@@ -13,6 +13,10 @@ import CreatePost from "@/pages/CreatePost";
 import Itinerary from "@/pages/Itinerary";
 import Profile from "@/pages/Profile";
 import MapPage from "@/pages/MapPage";
+import AccountSettings from "@/pages/AccountSettings";
+import TravelerSearch from "@/pages/TravelerSearch";
+import TravelerProfile from "@/pages/TravelerProfile";
+import Friends from "@/pages/Friends";
 
 function App() {
   return (
@@ -33,6 +37,10 @@ function App() {
                 <Route path="/create-post" element={<CreatePost />} />
                 <Route path="/itinerary" element={<Itinerary />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<AccountSettings />} />
+                <Route path="/travelers" element={<TravelerSearch />} />
+                <Route path="/travelers/:userId" element={<TravelerProfile />} />
+                <Route path="/friends" element={<Friends />} />
               </Route>
             </Routes>
           </div>

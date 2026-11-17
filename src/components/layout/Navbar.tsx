@@ -8,9 +8,11 @@ import {
   LogIn,
   LogOut,
   UserPlus,
+  Settings,
 } from "lucide-react"
 
 import { useAuth } from "@/auth/useAuth"
+import TravelerSearchBar from "@/components/social/TravelerSearchBar"
 
 const navItems = [
   { name: "Feed", path: "/feed", icon: House },
@@ -74,8 +76,21 @@ function AuthControls() {
         <LogOut size={18} />
         Logout
       </button>
+      <NavLink
+        to="/settings"
+        aria-label="Account Settings"
+        title="Account Settings"
+        className={authLinkClass}
+      >
+        <Settings size={20} aria-hidden="true" />
+      </NavLink>
     </>
   )
+}
+
+function AuthenticatedSearch() {
+  const { isAuthenticated, isLoading } = useAuth()
+  return !isLoading && isAuthenticated ? <TravelerSearchBar /> : null
 }
 
 function Navbar() {
@@ -83,6 +98,7 @@ function Navbar() {
     <>
       {/* Mobile top strip: the bottom bar has no room for auth controls */}
       <div className="flex items-center justify-end gap-1 border-b bg-white px-3 py-1 md:hidden">
+        <div className="mr-auto w-full max-w-sm pr-2"><AuthenticatedSearch /></div>
         <AuthControls />
       </div>
 
@@ -93,7 +109,8 @@ function Navbar() {
             WeTravel
           </NavLink>
 
-          <div className="flex items-center gap-2">
+          <div className="mx-4 w-full max-w-xs flex-1"><AuthenticatedSearch /></div>
+          <div className="flex shrink-0 items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon
 

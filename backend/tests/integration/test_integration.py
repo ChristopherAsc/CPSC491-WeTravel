@@ -81,9 +81,10 @@ def test_get_posts_integration_smoke(client, db, seeded_user):
     assert "created_at" in returned_post
 
     # Verify the Post -> Location ORM relationship serialized through Pydantic.
+    # Public coordinates are rounded to 3 decimals (C08).
     assert returned_post["location"]["name"] == "Los Angeles, California"
-    assert returned_post["location"]["latitude"] == 34.0522
-    assert returned_post["location"]["longitude"] == -118.2437
+    assert returned_post["location"]["latitude"] == 34.052
+    assert returned_post["location"]["longitude"] == -118.244
 
 
 def test_get_posts_returns_empty_list_when_no_posts_exist(client):
@@ -249,6 +250,61 @@ def test_itinerary_create_and_retrieve_regression(client):
     assert detail_response.json()["name"] == "Sprint 4 Regression Trip"
 
 
+def test_post_detail_returns_correct_post_regression(client, db, seeded_user):
+    """
+    Sprint 4 MVP regression:
+    Verify that retrieving a post by ID returns the
+    correct post and associated location.
+    """
+
+    # Create a test location.
+    location = Location(
+        name="San Francisco, California",
+        latitude=37.7749,
+        longitude=-122.4194,
+    )
+
+    db.add(location)
+    db.flush()
+
+    # Create two posts to verify correct retrieval.
+    first_post = Post(
+        user_id=seeded_user.user_id,
+        location_id=location.location_id,
+        caption="First regression post",
+        media_url=None,
+    )
+
+    second_post = Post(
+        user_id=seeded_user.user_id,
+        location_id=location.location_id,
+        caption="Second regression post",
+        media_url=None,
+    )
+
+    db.add_all([first_post, second_post])
+    db.commit()
+    db.refresh(first_post)
+    db.refresh(second_post)
+
+    # Retrieve the second post specifically.
+    response = client.get(f"/api/posts/{second_post.post_id}")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    # Verify the correct post was returned.
+    assert data["post_id"] == second_post.post_id
+    assert data["post_id"] != first_post.post_id
+    assert data["caption"] == "Second regression post"
+
+    # Verify location information is correct.
+    assert data["location"]["name"] == "San Francisco, California"
+    assert data["location"]["latitude"] in (37.7749, 37.775)
+    assert data["location"]["longitude"] in (-122.4194, -122.419)
+
+
 @pytest.mark.requirement("POST-02")
 def test_created_post_appears_first_in_feed_integration(client):
     """
@@ -257,7 +313,8 @@ def test_created_post_appears_first_in_feed_integration(client):
     Authenticated POST /api/posts
         -> post and location persisted
         -> GET /api/posts returns the new post first
-        -> every submitted field round-trips unchanged
+        -> every submitted field round-trips unchanged, except coordinates,
+           which are publicly rounded to 3 decimals (C08)
     """
 
     user_id, headers = register_and_login(client, "create_feed_user")
@@ -302,7 +359,11 @@ def test_created_post_appears_first_in_feed_integration(client):
     assert feed_post["user_id"] == user_id
     assert feed_post["caption"] == newest_post["caption"]
     assert feed_post["media_url"] is None
-    assert feed_post["location"] == newest_post["location"]
+    assert feed_post["location"] == {
+        "name": newest_post["location"]["name"],
+        "latitude": 37.775,
+        "longitude": -122.419,
+    }
 
     detail_response = client.get(f"/api/posts/{created['post_id']}")
     assert detail_response.status_code == 200
