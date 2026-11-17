@@ -371,3 +371,81 @@ def test_post_list_includes_like_count(
 
     assert len(matching_posts) == 1
     assert matching_posts[0]["like_count"] == 1
+
+
+# =========================================================
+# 6. Viewer Like State Tests
+# =========================================================
+# Verifies that post responses tell the requesting user whether
+# they liked each post, without exposing who else liked it.
+# =========================================================
+
+
+def _feed_entry(client, post, headers=None):
+    response = client.get("/api/posts", headers=headers or {})
+
+    assert response.status_code == 200
+
+    return next(item for item in response.json() if item["post_id"] == post.post_id)
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_liked_by_me_is_false_for_anonymous_visitors(client, like_post, like_headers):
+    """Verify anonymous requests never report a post as liked."""
+    client.post(f"/api/posts/{like_post.post_id}/likes", headers=like_headers[0])
+
+    entry = _feed_entry(client, like_post)
+
+    assert entry["like_count"] == 1
+    assert entry["liked_by_me"] is False
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_liked_by_me_reflects_the_requesting_users_like(
+    client, like_post, like_headers
+):
+    """Verify liked_by_me is true only for the user who liked the post."""
+    client.post(f"/api/posts/{like_post.post_id}/likes", headers=like_headers[0])
+
+    assert _feed_entry(client, like_post, like_headers[0])["liked_by_me"] is True
+    assert _feed_entry(client, like_post, like_headers[1])["liked_by_me"] is False
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_liked_by_me_clears_after_unlike(client, like_post, like_headers):
+    """Verify liked_by_me returns to false after the like is removed."""
+    for _ in range(2):
+        client.post(f"/api/posts/{like_post.post_id}/likes", headers=like_headers[0])
+
+    entry = _feed_entry(client, like_post, like_headers[0])
+
+    assert entry["liked_by_me"] is False
+    assert entry["like_count"] == 0
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_liked_by_me_is_included_on_post_detail_and_profile_posts(
+    client, like_post, like_users, like_headers
+):
+    """Verify detail and profile post responses carry the viewer's like state."""
+    client.post(f"/api/posts/{like_post.post_id}/likes", headers=like_headers[1])
+
+    detail = client.get(f"/api/posts/{like_post.post_id}", headers=like_headers[1])
+    profile = client.get(
+        f"/api/users/{like_users[0].user_id}/posts", headers=like_headers[1]
+    )
+    other_viewer = client.get(
+        f"/api/posts/{like_post.post_id}", headers=like_headers[0]
+    )
+
+    assert detail.json()["liked_by_me"] is True
+    assert profile.json()[0]["liked_by_me"] is True
+    assert other_viewer.json()["liked_by_me"] is False
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_invalid_token_is_treated_as_anonymous_for_liked_by_me(client, like_post):
+    """Verify a bad token still loads the public feed with liked_by_me false."""
+    entry = _feed_entry(client, like_post, {"Authorization": "Bearer not-a-token"})
+
+    assert entry["liked_by_me"] is False

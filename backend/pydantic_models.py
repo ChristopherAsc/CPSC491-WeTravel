@@ -78,6 +78,7 @@ class PostResponse(BaseModel):
     location: PostLocationResponse
     created_at: datetime
     like_count: int
+    liked_by_me: bool = False
 
 
 class ItineraryCreate(BaseModel):

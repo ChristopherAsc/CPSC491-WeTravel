@@ -124,6 +124,8 @@ describe("Smoke: Feed", () => {
         media_url: "https://example.com/photo.jpg",
         location: { name: "Yosemite", latitude: 37.8, longitude: -119.5 },
         created_at: "2026-10-10T10:00:00Z",
+        like_count: 0,
+        liked_by_me: false,
       },
     ])
 

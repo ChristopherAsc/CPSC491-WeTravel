@@ -175,6 +175,30 @@ def can_view_posts(owner: User, viewer: User | None, db: Session) -> bool:
     )
 
 
+def mark_liked_by_viewer(posts: list[Post], viewer: User | None, db: Session):
+    """Set `liked_by_me` on each post for the viewer before it is serialized.
+
+    Anonymous visitors always get False. Only the viewer's own like state is
+    exposed, never who else liked a post.
+    """
+    liked_post_ids: set[int] = set()
+
+    if viewer is not None and posts:
+        liked_post_ids = set(
+            db.scalars(
+                select(PostLike.post_id).where(
+                    PostLike.user_id == viewer.user_id,
+                    PostLike.post_id.in_([post.post_id for post in posts]),
+                )
+            )
+        )
+
+    for post in posts:
+        post.liked_by_me = post.post_id in liked_post_ids
+
+    return posts
+
+
 # =========================================================
 # Authentication Routes
 # =========================================================
@@ -544,8 +568,9 @@ def get_user_profile(
 )
 def get_my_posts(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return current_user.posts
+    return mark_liked_by_viewer(current_user.posts, current_user, db)
 
 
 @router.get(
@@ -568,7 +593,7 @@ def get_user_posts(
     if not can_view_posts(user, viewer, db):
         raise HTTPException(status_code=403, detail="This profile is private")
 
-    return user.posts
+    return mark_liked_by_viewer(user.posts, viewer, db)
 
 
 @router.get(
@@ -593,6 +618,7 @@ def get_post(
     if not can_view_posts(post.user, viewer, db):
         raise HTTPException(status_code=404, detail="Post not found")
 
+    mark_liked_by_viewer([post], viewer, db)
     return post
 
 
@@ -601,11 +627,12 @@ def get_post(
     response_model=list[PostResponse],
 )
 def get_posts(
+    viewer: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """Retrieve the latest 20 travel posts."""
 
-    return db.scalars(
+    posts = db.scalars(
         select(Post)
         .join(Post.user)
         .where(User.is_private.is_(False))
@@ -615,6 +642,8 @@ def get_posts(
         )
         .limit(20)
     ).all()
+
+    return mark_liked_by_viewer(list(posts), viewer, db)
 
 
 @router.post(
@@ -904,6 +933,7 @@ def get_location(
 )
 def get_posts_by_location(
     location_id: int,
+    viewer: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     location = db.get(Location, location_id)
@@ -914,7 +944,8 @@ def get_posts_by_location(
             detail="Location not found",
         )
 
-    return [post for post in location.posts if not post.user.is_private]
+    public_posts = [post for post in location.posts if not post.user.is_private]
+    return mark_liked_by_viewer(public_posts, viewer, db)
 
 
 # =========================================================

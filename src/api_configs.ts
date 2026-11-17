@@ -11,8 +11,12 @@ export async function healthCheck() {
   return response.json()
 }
 
-export async function getPosts() {
-  const response = await fetch(`${API_BASE_URL}/api/posts`)
+// A token is optional: signed-in viewers also get their own like state back
+export async function getPosts(token?: string | null) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/posts`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+  )
 
   if (!response.ok) {
     throw new Error(`Failed to fetch posts: ${response.status}`)
@@ -142,28 +146,54 @@ export async function createPost(payload: PostCreatePayload, token: string): Pro
   })
 
   if (!response.ok) {
-    // FastAPI returns a string for most errors and an array of validation
-    // issues for 422 responses. Do not display a raw object in the UI.
-    const body: unknown = await response.json().catch(() => null)
-    const detail = body && typeof body === "object" && "detail" in body
-      ? body.detail
-      : null
-    const message = typeof detail === "string"
-      ? detail
-      : Array.isArray(detail)
-        ? detail.map((issue: unknown) => {
-            if (issue && typeof issue === "object" && "msg" in issue && typeof issue.msg === "string") {
-              return issue.msg
-            }
-            return "Invalid request"
-          }).join("; ")
-        : `Post submission failed (${response.status})`
-
-    throw new ApiRequestError(
-      response.status === 401 ? "Your login has expired. Please log in again." : message,
-      response.status,
-    )
+    throw await toApiRequestError(response, `Post submission failed (${response.status})`)
   }
 
   return (await response.json()) as CreatedPost
+}
+
+// Turns a failed response into an ApiRequestError with a message safe to display.
+// FastAPI returns a string for most errors and an array of validation issues
+// for 422 responses. Do not display a raw object in the UI.
+async function toApiRequestError(response: Response, fallback: string): Promise<ApiRequestError> {
+  if (response.status === 401) {
+    return new ApiRequestError("Your login has expired. Please log in again.", 401)
+  }
+
+  const body: unknown = await response.json().catch(() => null)
+  const detail = body && typeof body === "object" && "detail" in body
+    ? body.detail
+    : null
+  const message = typeof detail === "string"
+    ? detail
+    : Array.isArray(detail)
+      ? detail.map((issue: unknown) => {
+          if (issue && typeof issue === "object" && "msg" in issue && typeof issue.msg === "string") {
+            return issue.msg
+          }
+          return "Invalid request"
+        }).join("; ")
+      : fallback
+
+  return new ApiRequestError(message, response.status)
+}
+
+export type PostLikeState = {
+  post_id: number
+  liked: boolean
+  like_count: number
+}
+
+// Likes the post, or removes the user's like if they already liked it
+export async function togglePostLike(postId: number, token: string): Promise<PostLikeState> {
+  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/likes`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!response.ok) {
+    throw await toApiRequestError(response, `Could not update your like (${response.status})`)
+  }
+
+  return (await response.json()) as PostLikeState
 }

@@ -93,6 +93,8 @@ Login-only routes (`/auth/me`, `/users/me`, `/users/me/posts`, `/itineraries`, `
 | Safety report | `user_id` (reporter) | **Prohibited in public responses** | No public feature needs the reporter's identity; combined with a location and timestamp it places a named user at a spot at a time. Returned only to the reporter in the response to their own `POST /safety-reports`. Owner-only deletion is checked server-side from the token. |
 | Itinerary | all fields (name, description, dates, destinations) | **Prohibited (private)** | Available only through login-only, owner-checked routes |
 | Post like | who liked a post | **Prohibited** | Not exposed; only the liker receives the toggle result |
+| Post | `like_count` | **Public** | Aggregate count only; no liker identities |
+| Post | `liked_by_me` | **Public (viewer-specific)** | Reports only whether the *requesting* user liked the post; always `false` for anonymous requests, so it reveals nothing about other users |
 
 The allowlists in the test module (`POST_FIELDS`, `PROFILE_FIELDS`, `LOCATION_FIELDS`, `SAFETY_REPORT_FIELDS`, `PROHIBITED_KEYS`) encode this table exactly.
 

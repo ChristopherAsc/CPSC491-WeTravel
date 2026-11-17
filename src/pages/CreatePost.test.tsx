@@ -210,6 +210,8 @@ describe("Create Post to Feed", () => {
       media_url: null,
       location: { name: yosemite.fullName, latitude: yosemite.latitude, longitude: yosemite.longitude },
       created_at: "2026-11-02T18:00:00Z",
+      like_count: 0,
+      liked_by_me: false,
     }
     vi.mocked(createPost).mockResolvedValue(created)
     vi.mocked(getPosts).mockResolvedValue([created])

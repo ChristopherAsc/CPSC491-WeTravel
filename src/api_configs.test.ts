@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ApiRequestError, createPost, loginUser, registerUser } from "@/api_configs"
+import { ApiRequestError, createPost, getPosts, loginUser, registerUser, togglePostLike } from "@/api_configs"
 
 function mockFetch(status: number, json: () => Promise<unknown>) {
   vi.stubGlobal(
@@ -117,5 +117,57 @@ describe("createPost", () => {
     await expect(createPost(payload, "test-token")).rejects.toThrow(
       "Value error, Caption cannot be blank; Input should be less than or equal to 90"
     )
+  })
+})
+
+describe("getPosts", () => {
+  it("sends the token when one is provided so liked posts are marked", async () => {
+    mockFetch(200, async () => [])
+
+    await getPosts("example-test-token")
+
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain("/api/posts")
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer example-test-token")
+  })
+
+  it("makes an anonymous request when no token is provided", async () => {
+    mockFetch(200, async () => [])
+
+    await getPosts()
+
+    expect(vi.mocked(fetch).mock.calls[0][1]).toBeUndefined()
+  })
+})
+
+describe("togglePostLike", () => {
+  it("posts to the like endpoint with the token and returns the new state", async () => {
+    mockFetch(200, async () => ({ post_id: 7, liked: true, like_count: 4 }))
+
+    const result = await togglePostLike(7, "example-test-token")
+
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain("/api/posts/7/likes")
+    expect(options?.method).toBe("POST")
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer example-test-token")
+    expect(result).toEqual({ post_id: 7, liked: true, like_count: 4 })
+  })
+
+  it("reports an expired login on 401", async () => {
+    mockFetch(401, async () => ({ detail: "Invalid authentication token" }))
+
+    await expect(togglePostLike(7, "stale")).rejects.toMatchObject({
+      status: 401,
+      message: "Your login has expired. Please log in again.",
+    })
+  })
+
+  it("throws the backend message when the post cannot be found", async () => {
+    mockFetch(404, async () => ({ detail: "Post not found" }))
+
+    await expect(togglePostLike(7, "token")).rejects.toMatchObject({
+      status: 404,
+      message: "Post not found",
+    })
   })
 })

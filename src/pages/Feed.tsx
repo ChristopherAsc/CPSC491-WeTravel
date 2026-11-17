@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom"
 import { AlertCircle, CircleCheck, Compass, LoaderCircle, Plus, RefreshCw } from "lucide-react"
 import { getPosts } from "@/api_configs"
 import PostCard, { type FeedPost } from "@/components/feed/PostCard"
+import { useAuth } from "@/auth/useAuth"
 
 function isFeedPost(value: unknown): value is FeedPost {
   if (!value || typeof value !== "object") return false
@@ -10,6 +11,7 @@ function isFeedPost(value: unknown): value is FeedPost {
   return typeof post.post_id === "number" && typeof post.user_id === "number" &&
     typeof post.username === "string" &&
     typeof post.caption === "string" && typeof post.created_at === "string" &&
+    typeof post.like_count === "number" && typeof post.liked_by_me === "boolean" &&
     (post.media_url === null || typeof post.media_url === "string")
 }
 
@@ -17,6 +19,7 @@ export default function Feed() {
   const navigationState: unknown = useLocation().state
   const justPublished = Boolean(navigationState && typeof navigationState === "object" &&
     "publishedPostId" in navigationState && typeof navigationState.publishedPostId === "number")
+  const { token } = useAuth()
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +30,7 @@ export default function Feed() {
 
     const fetchPosts = async () => {
       try {
-        const response: unknown = await getPosts()
+        const response: unknown = await getPosts(token)
         if (!Array.isArray(response) || !response.every(isFeedPost)) {
           throw new Error("Unexpected response format")
         }
@@ -47,7 +50,7 @@ export default function Feed() {
 
     void fetchPosts()
     return () => controller.abort()
-  }, [retryCount])
+  }, [retryCount, token])
 
   const handleRetry = () => {
     setLoading(true)
@@ -77,7 +80,7 @@ export default function Feed() {
       ) : posts.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-gray-200 bg-white px-6 py-20 text-center"><Compass className="text-[#0D3B66]" size={35} aria-hidden="true" /><h2 className="text-lg font-semibold text-gray-900">No travel posts yet</h2><p className="max-w-sm text-sm text-gray-600">Be the first traveler to share a destination with the community.</p><Link to="/create-post" className="rounded-lg bg-[#0D3B66] px-4 py-2 text-sm font-semibold text-white hover:bg-[#15558b]">Create a post</Link></div>
       ) : (
-        <section aria-label="Travel posts" className="space-y-6">{posts.map((post) => <PostCard key={post.post_id} post={post} />)}</section>
+        <section aria-label="Travel posts" className="space-y-6">{posts.map((post) => <PostCard key={`${post.post_id}:${token ?? "anon"}`} post={post} />)}</section>
       )}
     </main>
   )
