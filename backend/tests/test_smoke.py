@@ -35,9 +35,9 @@ def auth_headers(client):
     )
 
     login_response = client.post("/api/auth/login", json=credentials)
-    assert login_response.status_code == 200, (
-        f"[Authentication] smoke-test login setup failed: {login_response.text}"
-    )
+    assert (
+        login_response.status_code == 200
+    ), f"[Authentication] smoke-test login setup failed: {login_response.text}"
 
     return {"Authorization": f"Bearer {login_response.json()['access_token']}"}
 
@@ -54,17 +54,17 @@ def test_authentication_register_login_and_profile(client):
             "password": "SmokeTest123!",
         },
     )
-    assert register_response.status_code == 201, (
-        f"[Authentication] registration failed: {register_response.text}"
-    )
+    assert (
+        register_response.status_code == 201
+    ), f"[Authentication] registration failed: {register_response.text}"
 
     login_response = client.post(
         "/api/auth/login",
         json={"username": "smoke_auth_user", "password": "SmokeTest123!"},
     )
-    assert login_response.status_code == 200, (
-        f"[Authentication] login failed: {login_response.text}"
-    )
+    assert (
+        login_response.status_code == 200
+    ), f"[Authentication] login failed: {login_response.text}"
 
     token = login_response.json()["access_token"]
 
@@ -85,12 +85,12 @@ def test_feed_loads_existing_posts(client):
 
     response = client.get("/api/posts")
 
-    assert response.status_code == 200, (
-        f"[Feed] feed endpoint failed to load: {response.text}"
-    )
-    assert isinstance(response.json(), list), (
-        "[Feed] feed endpoint did not return a list of posts"
-    )
+    assert (
+        response.status_code == 200
+    ), f"[Feed] feed endpoint failed to load: {response.text}"
+    assert isinstance(
+        response.json(), list
+    ), "[Feed] feed endpoint did not return a list of posts"
 
 
 @pytest.mark.requirement("SMOKE-03")
@@ -106,24 +106,24 @@ def test_create_post_and_retrieve_it(client, auth_headers):
         },
         headers=auth_headers,
     )
-    assert create_response.status_code == 201, (
-        f"[Create Post] post creation failed: {create_response.text}"
-    )
+    assert (
+        create_response.status_code == 201
+    ), f"[Create Post] post creation failed: {create_response.text}"
 
     post_id = create_response.json()["post_id"]
 
     feed_response = client.get("/api/posts")
-    assert feed_response.status_code == 200, (
-        f"[Create Post] feed lookup after creation failed: {feed_response.text}"
-    )
-    assert any(post["post_id"] == post_id for post in feed_response.json()), (
-        "[Create Post] newly created post did not appear in the feed"
-    )
+    assert (
+        feed_response.status_code == 200
+    ), f"[Create Post] feed lookup after creation failed: {feed_response.text}"
+    assert any(
+        post["post_id"] == post_id for post in feed_response.json()
+    ), "[Create Post] newly created post did not appear in the feed"
 
     detail_response = client.get(f"/api/posts/{post_id}")
-    assert detail_response.status_code == 200, (
-        f"[Create Post] retrieving the created post failed: {detail_response.text}"
-    )
+    assert (
+        detail_response.status_code == 200
+    ), f"[Create Post] retrieving the created post failed: {detail_response.text}"
 
 
 @pytest.mark.requirement("SMOKE-04")
@@ -139,23 +139,23 @@ def test_map_can_load_location_and_its_posts(client, auth_headers, db):
         },
         headers=auth_headers,
     )
-    assert create_response.status_code == 201, (
-        f"[Map] setup post creation failed: {create_response.text}"
-    )
+    assert (
+        create_response.status_code == 201
+    ), f"[Map] setup post creation failed: {create_response.text}"
 
     post_id = create_response.json()["post_id"]
     location_id = db.get(Post, post_id).location_id
 
     location_response = client.get(f"/api/locations/{location_id}")
-    assert location_response.status_code == 200, (
-        f"[Map] location lookup failed: {location_response.text}"
-    )
+    assert (
+        location_response.status_code == 200
+    ), f"[Map] location lookup failed: {location_response.text}"
     assert location_response.json()["name"] == SMOKE_LOCATION["name"]
 
     posts_by_location_response = client.get(f"/api/locations/{location_id}/posts")
-    assert posts_by_location_response.status_code == 200, (
-        f"[Map] posts-by-location lookup failed: {posts_by_location_response.text}"
-    )
+    assert (
+        posts_by_location_response.status_code == 200
+    ), f"[Map] posts-by-location lookup failed: {posts_by_location_response.text}"
     assert any(
         post["post_id"] == post_id for post in posts_by_location_response.json()
     ), "[Map] created post is missing from its location's post list"
@@ -166,9 +166,9 @@ def test_safety_reports_are_accessible_and_creatable(client, auth_headers):
     """Safety reports can be listed and a new report is retrievable after creation."""
 
     list_response = client.get("/api/safety-reports")
-    assert list_response.status_code == 200, (
-        f"[Safety] safety report listing failed: {list_response.text}"
-    )
+    assert (
+        list_response.status_code == 200
+    ), f"[Safety] safety report listing failed: {list_response.text}"
 
     create_response = client.post(
         "/api/safety-reports",
@@ -179,9 +179,9 @@ def test_safety_reports_are_accessible_and_creatable(client, auth_headers):
         },
         headers=auth_headers,
     )
-    assert create_response.status_code == 201, (
-        f"[Safety] safety report creation failed: {create_response.text}"
-    )
+    assert (
+        create_response.status_code == 201
+    ), f"[Safety] safety report creation failed: {create_response.text}"
 
     report_id = create_response.json()["report_id"]
 
@@ -197,9 +197,9 @@ def test_representative_api_endpoints_respond_cleanly(client):
     """Representative endpoints return expected status codes instead of crashing."""
 
     health_response = client.get("/health")
-    assert health_response.status_code == 200, (
-        f"[API] health check failed: {health_response.text}"
-    )
+    assert (
+        health_response.status_code == 200
+    ), f"[API] health check failed: {health_response.text}"
     assert health_response.json() == {"status": "healthy"}
 
     unauthenticated_response = client.get("/api/users/me")

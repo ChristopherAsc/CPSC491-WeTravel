@@ -262,9 +262,9 @@ def test_c08_t2_public_response_reveals_no_private_data(client, c08_data, endpoi
         *(trip_date.isoformat() for trip_date in CANARY_TRIP_DATES),
     ]
     for private_value in private_values:
-        assert private_value not in response.text, (
-            f"[C08] {endpoint} leaks a private value: {private_value!r}"
-        )
+        assert (
+            private_value not in response.text
+        ), f"[C08] {endpoint} leaks a private value: {private_value!r}"
 
 
 # =========================================================
@@ -290,9 +290,9 @@ def test_c08_t3_public_coordinates_are_coarsened(client, c08_data, endpoint):
     }
 
     assert coordinates, f"[C08] {endpoint} returned no coordinates to check"
-    assert too_precise == [], (
-        f"[C08] {endpoint} returns coordinates finer than ~110 m: {too_precise}"
-    )
+    assert (
+        too_precise == []
+    ), f"[C08] {endpoint} returns coordinates finer than ~110 m: {too_precise}"
     assert set(coordinates) <= correctly_rounded, (
         f"[C08] {endpoint} coordinates are not the stored location rounded "
         f"to {PUBLIC_COORDINATE_DECIMALS} decimals: {coordinates}"

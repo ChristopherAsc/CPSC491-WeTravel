@@ -223,9 +223,9 @@ def test_itinerary_create_and_retrieve_regression(client):
         headers=headers,
     )
 
-    assert create_response.status_code == 201, (
-        f"Itinerary creation failed: {create_response.json()}"
-    )
+    assert (
+        create_response.status_code == 201
+    ), f"Itinerary creation failed: {create_response.json()}"
 
     created = create_response.json()
     assert created["name"] == "Sprint 4 Regression Trip"
