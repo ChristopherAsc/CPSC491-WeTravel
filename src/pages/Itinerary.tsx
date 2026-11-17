@@ -4,7 +4,6 @@ import { CalendarDays, Check, Compass, MapPin, Plus, X} from "lucide-react"
 import {
   getItineraries,
   createItinerary,
-  updateItinerary,
   addDestination,
   removeDestination,
   type Itinerary as ApiItinerary,
