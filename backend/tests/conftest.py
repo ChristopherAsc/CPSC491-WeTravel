@@ -5,8 +5,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import os
 
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
-os.environ["JWT_SECRET"] = "test-secret-key-for-ci-testing-123456789"
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-ci-testing-123456789")
 
 import pytest
 from database import Base, get_db

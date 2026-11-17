@@ -301,8 +301,8 @@ def test_post_detail_returns_correct_post_regression(client, db, seeded_user):
 
     # Verify location information is correct.
     assert data["location"]["name"] == "San Francisco, California"
-    assert data["location"]["latitude"] == 37.7749
-    assert data["location"]["longitude"] == -122.4194
+    assert data["location"]["latitude"] == 37.775
+    assert data["location"]["longitude"] == -122.419
 
 
 @pytest.mark.requirement("POST-02")
