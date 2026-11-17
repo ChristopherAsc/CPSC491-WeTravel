@@ -8,6 +8,7 @@ All tables below are implemented in `models.py` and created by the migrations:
 |----------------|-------------------------------------------------------|-------------------------------------------------------------------------|
 | `a6fe3f474c47` | `a6fe3f474c47_create_users_table.py`                  | `users`                                                                 |
 | `ff6b866c8309` | `ff6b866c8309_add_post_safety_and_location_tables.py` | `locations`, `itineraries`, `posts`, `safety_reports`, `itinerary_destinations` |
+| `b3d91e7a4c52` | `b3d91e7a4c52_add_post_comments.py`                   | `comments`                                                              |
 
 ## Tables
 
@@ -71,17 +72,30 @@ Many-to-many link between an itinerary and the locations on it (`Itinerary.desti
 | `description` | String(2000)              | Nullable                                                       |
 | `created_at`  | DateTime (with time zone) | Not null, server default `now()`                               |
 
+### `comments`
+
+| Column       | Type                      | Constraints                                                          |
+|--------------|---------------------------|----------------------------------------------------------------------|
+| `comment_id` | Integer                   | Primary key                                                          |
+| `post_id`    | Integer                   | Foreign key → `posts.post_id` (on delete cascade), not null, indexed |
+| `user_id`    | Integer                   | Foreign key → `users.user_id` (on delete cascade), not null, indexed |
+| `content`    | String(500)               | Not null                                                             |
+| `created_at` | DateTime (with time zone) | Not null, server default `now()`                                     |
+
 ## Relationships
 
 - `users` 1—* `posts` (`posts.user_id`)
 - `users` 1—* `itineraries` (`itineraries.user_id`)
 - `users` 1—* `safety_reports` (`safety_reports.user_id`)
+- `users` 1—* `comments` (`comments.user_id`)
+- `posts` 1—* `comments` (`comments.post_id`)
 - `locations` 1—* `posts` (`posts.location_id`)
 - `locations` 1—* `safety_reports` (`safety_reports.location_id`)
 - `itineraries` *—* `locations` through `itinerary_destinations`
 
 ### Delete behavior
 
+- Deleting a post deletes its comments. Deleting a user deletes their comments too.
 - Deleting a user deletes their posts, itineraries, and safety reports (database `ON DELETE CASCADE`, plus `cascade="all, delete-orphan"` on the ORM relationships).
 - Deleting an itinerary or a location removes its rows from `itinerary_destinations`.
 - Deleting a location that is still referenced by a post or safety report fails (no cascade on those foreign keys).
@@ -95,5 +109,7 @@ Many-to-many link between an itinerary and the locations on it (`Itinerary.desti
 | `ix_itineraries_user_id`        | `itineraries`    | `user_id`     |
 | `ix_safety_reports_user_id`     | `safety_reports` | `user_id`     |
 | `ix_safety_reports_location_id` | `safety_reports` | `location_id` |
+| `ix_comments_post_id`           | `comments`       | `post_id`     |
+| `ix_comments_user_id`           | `comments`       | `user_id`     |
 
 `users.username` and `users.email` are covered by their unique constraints. Note that `models.py` also marks them `index=True`, but the `create_users_table` migration doesn't create separate `ix_users_*` indexes, so Alembic autogenerate may try to add them.

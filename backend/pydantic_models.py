@@ -79,6 +79,7 @@ class PostResponse(BaseModel):
     created_at: datetime
     like_count: int
     liked_by_me: bool = False
+    comment_count: int
 
 
 class ItineraryCreate(BaseModel):
@@ -181,6 +182,29 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class CommentCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=500)
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Comment cannot be blank")
+        return value
+
+
+class CommentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    comment_id: int
+    post_id: int
+    user_id: int
+    username: str
+    content: str
+    created_at: datetime
 
 
 class PostLikeResponse(BaseModel):

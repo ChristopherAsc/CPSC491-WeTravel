@@ -63,6 +63,7 @@ All paths are under `/api`. "Public" means the route has no `get_current_user` d
 |---|---|---|---|
 | `GET /posts` | `list[PostResponse]` | Latest 20 posts | Travel Feed |
 | `GET /posts/{post_id}` | `PostResponse` | One post | Post detail |
+| `GET /posts/{post_id}/comments` | `list[CommentResponse]` | A post's comments, oldest first (hidden for private authors, like the post itself) | Feed comments |
 | `GET /users/{user_id}` | `PublicUserResponse` | Public profile | Profile pages |
 | `GET /users/{user_id}/posts` | `list[PostResponse]` | A user's posts | Profile pages |
 | `GET /locations` | `list[LocationResponse]` | Stored locations | Map |
@@ -93,6 +94,9 @@ Login-only routes (`/auth/me`, `/users/me`, `/users/me/posts`, `/itineraries`, `
 | Safety report | `user_id` (reporter) | **Prohibited in public responses** | No public feature needs the reporter's identity; combined with a location and timestamp it places a named user at a spot at a time. Returned only to the reporter in the response to their own `POST /safety-reports`. Owner-only deletion is checked server-side from the token. |
 | Itinerary | all fields (name, description, dates, destinations) | **Prohibited (private)** | Available only through login-only, owner-checked routes |
 | Post like | who liked a post | **Prohibited** | Not exposed; only the liker receives the toggle result |
+| Post | `comment_count` | **Public** | Aggregate count only |
+| Comment | `comment_id`, `post_id`, `content`, `created_at` | **Public** | Text the commenter chose to publish on a public post |
+| Comment | `user_id`, `username` | **Public** | Commenter identity, shown next to each comment; same values already public for post authors (see `User`) |
 | Post | `like_count` | **Public** | Aggregate count only; no liker identities |
 | Post | `liked_by_me` | **Public (viewer-specific)** | Reports only whether the *requesting* user liked the post; always `false` for anonymous requests, so it reveals nothing about other users |
 

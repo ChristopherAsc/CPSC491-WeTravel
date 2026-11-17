@@ -7,6 +7,7 @@ from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from models import (
+    Comment,
     FriendRequest,
     Itinerary,
     Location,
@@ -20,6 +21,8 @@ from pydantic_models import (
     AccountDeleteConfirmation,
     AccountPasswordUpdate,
     AccountUsernameUpdate,
+    CommentCreate,
+    CommentResponse,
     FriendActionResponse,
     FriendRequestResponse,
     ItineraryCreate,
@@ -792,6 +795,83 @@ def toggle_post_like(
         "liked": liked,
         "like_count": like_count,
     }
+
+
+# =========================================================
+# Post Comments
+# =========================================================
+
+
+def get_visible_post_or_404(post_id: int, viewer: User | None, db: Session) -> Post:
+    """Return a post the viewer may see; hide missing and private posts alike."""
+
+    post = db.get(Post, post_id)
+
+    if post is None or not can_view_posts(post.user, viewer, db):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+
+    return post
+
+
+@router.get(
+    "/posts/{post_id}/comments",
+    response_model=list[CommentResponse],
+)
+def get_post_comments(
+    post_id: int,
+    limit: int = Query(default=100, ge=1, le=200),
+    viewer: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """List a post's comments, oldest first."""
+
+    get_visible_post_or_404(post_id, viewer, db)
+
+    return db.scalars(
+        select(Comment)
+        .where(Comment.post_id == post_id)
+        .order_by(Comment.created_at, Comment.comment_id)
+        .limit(limit)
+    ).all()
+
+
+@router.post(
+    "/posts/{post_id}/comments",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_post_comment(
+    post_id: int,
+    comment_data: CommentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Add a comment from the authenticated user to a post."""
+
+    get_visible_post_or_404(post_id, current_user, db)
+
+    new_comment = Comment(
+        post_id=post_id,
+        user_id=current_user.user_id,
+        content=comment_data.content,
+    )
+
+    try:
+        db.add(new_comment)
+        db.commit()
+        db.refresh(new_comment)
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create comment",
+        ) from None
+
+    return new_comment
 
 
 # =========================================================

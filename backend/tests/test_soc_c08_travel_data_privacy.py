@@ -19,10 +19,11 @@ from pathlib import Path
 
 import pytest
 from fastapi.routing import APIRoute
-from models import Itinerary, Location, Post, SafetyReport, User
+from models import Comment, Itinerary, Location, Post, SafetyReport, User
 from pydantic import BaseModel
 from pydantic_models import (
     PUBLIC_COORDINATE_DECIMALS,
+    CommentResponse,
     LocationResponse,
     PostResponse,
     PublicSafetyReportResponse,
@@ -51,6 +52,15 @@ POST_FIELDS = {
     "location.longitude",
     "like_count",
     "liked_by_me",
+    "comment_count",
+}
+COMMENT_FIELDS = {
+    "comment_id",
+    "post_id",
+    "user_id",
+    "username",
+    "content",
+    "created_at",
 }
 PROFILE_FIELDS = {"user_id", "username"}
 LOCATION_FIELDS = {"location_id", "name", "latitude", "longitude"}
@@ -81,6 +91,7 @@ PROHIBITED_KEYS = {
 PUBLIC_ENDPOINTS = {
     "feed": ("/api/posts", POST_FIELDS),
     "post_detail": ("/api/posts/{post_id}", POST_FIELDS),
+    "post_comments": ("/api/posts/{post_id}/comments", COMMENT_FIELDS),
     "public_profile": ("/api/users/{user_id}", PROFILE_FIELDS),
     "user_posts": ("/api/users/{user_id}/posts", POST_FIELDS),
     "location_list": ("/api/locations", LOCATION_FIELDS),
@@ -152,7 +163,8 @@ def c08_data(db):
         end_date=CANARY_TRIP_DATES[1],
         destinations=[viewpoint],
     )
-    db.add_all([traveler, post, report, itinerary])
+    comment = Comment(post=post, user=traveler, content="C08 public comment")
+    db.add_all([traveler, post, report, itinerary, comment])
     db.commit()
 
     return {
@@ -276,7 +288,12 @@ def test_c08_t2_public_response_reveals_no_private_data(client, c08_data, endpoi
 
 @pytest.mark.requirement("C08", "RISK-03")
 @pytest.mark.parametrize(
-    "endpoint", [name for name in PUBLIC_ENDPOINTS if name != "public_profile"]
+    "endpoint",
+    [
+        name
+        for name in PUBLIC_ENDPOINTS
+        if name not in ("public_profile", "post_comments")
+    ],
 )
 def test_c08_t3_public_coordinates_are_coarsened(client, c08_data, endpoint):
     """Public coordinates are the stored values rounded to ~110 m."""
@@ -335,12 +352,14 @@ def test_c08_t4_every_public_route_declares_a_response_model():
     ("model", "allowed"),
     [
         (PostResponse, POST_FIELDS),
+        (CommentResponse, COMMENT_FIELDS),
         (PublicUserResponse, PROFILE_FIELDS),
         (LocationResponse, LOCATION_FIELDS),
         (PublicSafetyReportResponse, SAFETY_REPORT_FIELDS),
     ],
     ids=[
         "PostResponse",
+        "CommentResponse",
         "PublicUserResponse",
         "LocationResponse",
         "PublicSafetyReportResponse",

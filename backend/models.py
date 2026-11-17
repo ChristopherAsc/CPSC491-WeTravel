@@ -84,6 +84,10 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    comments: Mapped[list["Comment"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Location(Base):
@@ -132,10 +136,19 @@ class Post(Base):
         back_populates="post",
         cascade="all, delete-orphan",
     )
+    comments: Mapped[list["Comment"]] = relationship(
+        back_populates="post",
+        cascade="all, delete-orphan",
+        order_by="(Comment.created_at, Comment.comment_id)",
+    )
 
     @property
     def like_count(self) -> int:
         return len(self.post_likes)
+
+    @property
+    def comment_count(self) -> int:
+        return len(self.comments)
 
     @property
     def username(self) -> str:
@@ -203,6 +216,35 @@ class PostLike(Base):
 
     user: Mapped["User"] = relationship(back_populates="post_likes")
     post: Mapped["Post"] = relationship(back_populates="post_likes")
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    comment_id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("posts.post_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    content: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    post: Mapped["Post"] = relationship(back_populates="comments")
+    user: Mapped["User"] = relationship(back_populates="comments")
+
+    @property
+    def username(self) -> str:
+        return self.user.username
 
 
 class FriendRequest(Base):
