@@ -48,6 +48,8 @@ describe("Feature #4 frontend regression", () => {
     render(<MemoryRouter><TravelerSearch /></MemoryRouter>)
     fireEvent.change(screen.getByLabelText("Search usernames"), { target: { value: "nobody" } })
     fireEvent.click(screen.getByRole("button", { name: "Search" }))
-    expect(await screen.findByRole("status")).toHaveTextContent("No users found")
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent("No users found")
+    })
   })
 })

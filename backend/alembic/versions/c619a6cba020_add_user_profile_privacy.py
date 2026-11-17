@@ -3,8 +3,9 @@
 Revision ID: c619a6cba020
 Revises: da4f6c2b55a1
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 revision = "c619a6cba020"
 down_revision = "da4f6c2b55a1"
@@ -13,7 +14,12 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("users", sa.Column("is_private", sa.Boolean(), nullable=False, server_default=sa.false()))
+    op.add_column(
+        "users",
+        sa.Column(
+            "is_private", sa.Boolean(), nullable=False, server_default=sa.false()
+        ),
+    )
 
 
 def downgrade():

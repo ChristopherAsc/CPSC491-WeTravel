@@ -1,179 +1,134 @@
-import { NavLink, useNavigate } from "react-router-dom"
-import {
-  House,
-  Map,
-  Plus,
-  CalendarDays,
-  User,
-  LogIn,
-  LogOut,
-  UserPlus,
-  Settings,
-} from "lucide-react"
-
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { MemoryRouter } from "react-router-dom"
+import Navbar from "./Navbar"
 import { useAuth } from "@/auth/useAuth"
-import TravelerSearchBar from "@/components/social/TravelerSearchBar"
 
-const navItems = [
-  { name: "Feed", path: "/feed", icon: House },
-  { name: "Map", path: "/map", icon: Map },
-  { name: "Create Post", path: "/create-post", icon: Plus },
-  { name: "Itinerary", path: "/itinerary", icon: CalendarDays },
-  { name: "Profile", path: "/profile", icon: User },
-]
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: vi.fn(),
+}))
 
-const authLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-    isActive
-      ? "bg-[#0D3B66] text-white"
-      : "text-gray-600 hover:bg-gray-100 hover:text-[#0D3B66]"
-  }`
+// Search behavior has separate tests; these tests cover navbar visibility.
+vi.mock("@/components/social/TravelerSearchBar", () => ({
+  default: () => <div data-testid="traveler-search">Traveler Search</div>,
+}))
 
-// Login/Register for guests, username and Logout for signed-in users
-function AuthControls() {
-  const { isAuthenticated, isLoading, user, logout } = useAuth()
-  const navigate = useNavigate()
+const mockLogout = vi.fn()
+const mockLogin = vi.fn()
+const mockedUseAuth = vi.mocked(useAuth)
 
-  function handleLogout() {
-    logout()
-    navigate("/login", { replace: true })
-  }
-
-  // Hide the controls while a saved session is being verified, to avoid flicker
-  if (isLoading) {
-    return null
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <>
-        <NavLink to="/login" className={authLinkClass}>
-          <LogIn size={18} />
-          Login
-        </NavLink>
-
-        <NavLink to="/register" className={authLinkClass}>
-          <UserPlus size={18} />
-          Register
-        </NavLink>
-      </>
-    )
-  }
-
-  return (
-    <>
-      {user && (
-        <span className="px-2 text-sm font-medium text-gray-700">
-          {user.username}
-        </span>
-      )}
-
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-[#0D3B66]"
-      >
-        <LogOut size={18} />
-        Logout
-      </button>
-      <NavLink
-        to="/settings"
-        aria-label="Account Settings"
-        title="Account Settings"
-        className={authLinkClass}
-      >
-        <Settings size={20} aria-hidden="true" />
-      </NavLink>
-    </>
+function renderNavbar() {
+  return render(
+    <MemoryRouter initialEntries={["/feed"]}>
+      <Navbar />
+    </MemoryRouter>,
   )
 }
 
-function AuthenticatedSearch() {
-  const { isAuthenticated, isLoading } = useAuth()
-  return !isLoading && isAuthenticated ? <TravelerSearchBar /> : null
+function mockAuthenticatedUser() {
+  mockedUseAuth.mockReturnValue({
+    isAuthenticated: true,
+    isLoading: false,
+    token: "mock-test-token",
+    login: mockLogin,
+    user: {
+      user_id: 1,
+      username: "testtraveler",
+      email: "test@example.com",
+    },
+    logout: mockLogout,
+  })
 }
 
-function Navbar() {
-  return (
-    <>
-      {/* Mobile top strip: the bottom bar has no room for auth controls */}
-      <div className="flex items-center justify-end gap-1 border-b bg-white px-3 py-1 md:hidden">
-        <div className="mr-auto w-full max-w-sm pr-2"><AuthenticatedSearch /></div>
-        <AuthControls />
-      </div>
-
-      {/* Desktop Navbar */}
-      <nav className="sticky top-0 z-50 hidden border-b bg-white md:block">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <NavLink to="/feed" className="text-2xl font-bold text-[#0D3B66]">
-            WeTravel
-          </NavLink>
-
-          <div className="mx-4 w-full max-w-xs flex-1"><AuthenticatedSearch /></div>
-          <div className="flex shrink-0 items-center gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <NavLink
-                  key={item.name}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-[#0D3B66] text-white"
-                        : "text-gray-600 hover:bg-gray-100 hover:text-[#0D3B66]"
-                    }`
-                  }
-                >
-                  <Icon size={18} />
-                  {item.name}
-                </NavLink>
-              )
-            })}
-
-            <div className="ml-2 flex items-center gap-2 border-l pl-4">
-              <AuthControls />
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile Bottom Navbar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white md:hidden">
-        <div className="grid grid-cols-5">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isCreatePost = item.name === "Create Post"
-
-            return (
-              <NavLink
-                key={item.name}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex min-h-16 flex-col items-center justify-center gap-1 text-xs ${
-                    isActive ? "text-[#0D3B66]" : "text-gray-500"
-                  }`
-                }
-              >
-                <div
-                  className={
-                    isCreatePost
-                      ? "flex h-10 w-10 items-center justify-center rounded-xl bg-[#0D3B66] text-white"
-                      : ""
-                  }
-                >
-                  <Icon size={22} />
-                </div>
-
-                {!isCreatePost && <span>{item.name}</span>}
-              </NavLink>
-            )
-          })}
-        </div>
-      </nav>
-    </>
-  )
+function mockGuestUser() {
+  mockedUseAuth.mockReturnValue({
+    isAuthenticated: false,
+    isLoading: false,
+    token: null,
+    login: mockLogin,
+    user: null,
+    logout: mockLogout,
+  })
 }
 
-export default Navbar
+describe("Navbar — Feature #4 Regression Tests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAuthenticatedUser()
+  })
+
+  // This project's Vitest setup does not automatically clean up rendered roots.
+  // Without explicit cleanup, prior navbar instances remain in the DOM.
+  afterEach(() => {
+    cleanup()
+  })
+
+  it("NAV-01: displays the main navigation links", () => {
+    renderNavbar()
+
+    for (const name of ["Feed", "Map", "Create Post", "Itinerary", "Profile"]) {
+      expect(screen.getAllByText(name).length).toBeGreaterThan(0)
+    }
+  })
+
+  it("NAV-02: displays the authenticated username", () => {
+    renderNavbar()
+    expect(screen.getAllByText("testtraveler").length).toBeGreaterThan(0)
+  })
+
+  it("NAV-03: displays the traveler search bar for authenticated users", () => {
+    renderNavbar()
+    expect(screen.getAllByTestId("traveler-search").length).toBeGreaterThan(0)
+  })
+
+  it("NAV-04: displays account settings links for authenticated users", () => {
+    renderNavbar()
+
+    const settingsLinks = screen.getAllByRole("link", { name: "Account Settings" })
+    expect(settingsLinks.length).toBeGreaterThan(0)
+    for (const link of settingsLinks) {
+      expect(link).toHaveAttribute("href", "/settings")
+    }
+  })
+
+  it("NAV-05: displays Login and Register for guests", () => {
+    mockGuestUser()
+    renderNavbar()
+
+    expect(screen.getAllByRole("link", { name: /login/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("link", { name: /register/i }).length).toBeGreaterThan(0)
+  })
+
+  it("NAV-06: hides search and settings for guests", () => {
+    mockGuestUser()
+    renderNavbar()
+
+    expect(screen.queryByTestId("traveler-search")).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Account Settings" })).not.toBeInTheDocument()
+  })
+
+  it("NAV-07: logs out when Logout is clicked", () => {
+    renderNavbar()
+
+    const logoutButtons = screen.getAllByRole("button", { name: /logout/i })
+    fireEvent.click(logoutButtons[0])
+    expect(mockLogout).toHaveBeenCalledTimes(1)
+  })
+
+  it("NAV-08: hides authentication controls while loading", () => {
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+      token: null,
+      login: mockLogin,
+      user: null,
+      logout: mockLogout,
+    })
+
+    renderNavbar()
+
+    expect(screen.queryByTestId("traveler-search")).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: /login/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Account Settings" })).not.toBeInTheDocument()
+  })
+})

@@ -6,17 +6,22 @@ import jwt
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from models import FriendRequest, Itinerary, Location, Post, PostLike, SafetyReport, User
+from models import (
+    FriendRequest,
+    Itinerary,
+    Location,
+    Post,
+    PostLike,
+    SafetyReport,
+    User,
+)
 from pwdlib import PasswordHash
-from sqlalchemy.exc import IntegrityError
 from pydantic_models import (
     AccountDeleteConfirmation,
     AccountPasswordUpdate,
     AccountUsernameUpdate,
-    ProfilePrivacyUpdate,
-    ProfilePrivacyResponse,
-    FriendRequestResponse,
     FriendActionResponse,
+    FriendRequestResponse,
     ItineraryCreate,
     ItineraryResponse,
     ItineraryUpdate,
@@ -25,6 +30,8 @@ from pydantic_models import (
     PostCreate,
     PostLikeResponse,
     PostResponse,
+    ProfilePrivacyResponse,
+    ProfilePrivacyUpdate,
     PublicSafetyReportResponse,
     PublicUserResponse,
     SafetyReportCreate,
@@ -34,6 +41,7 @@ from pydantic_models import (
     UserResponse,
 )
 from sqlalchemy import func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from security_events import record_failed_login_attempt
 from sqlalchemy import func, select, text
@@ -114,7 +122,7 @@ def get_current_user(
 
         user_id = int(user_id)
 
-    except (jwt.InvalidTokenError, ValueError, TypeError):
+    except jwt.InvalidTokenError, ValueError, TypeError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -146,20 +154,27 @@ def get_optional_user(
 
 
 def can_view_posts(owner: User, viewer: User | None, db: Session) -> bool:
-    """Public profiles are viewable by all; private posts by their owner or accepted friends."""
+    """Allow public posts, or private posts for owners and accepted friends."""
     if not owner.is_private:
         return True
     if viewer is None:
         return False
     if viewer.user_id == owner.user_id:
         return True
-    return db.scalar(select(FriendRequest.request_id).where(
-        FriendRequest.status == "accepted",
-        or_(
-            (FriendRequest.sender_id == viewer.user_id) & (FriendRequest.recipient_id == owner.user_id),
-            (FriendRequest.sender_id == owner.user_id) & (FriendRequest.recipient_id == viewer.user_id),
-        ),
-    )) is not None
+    return (
+        db.scalar(
+            select(FriendRequest.request_id).where(
+                FriendRequest.status == "accepted",
+                or_(
+                    (FriendRequest.sender_id == viewer.user_id)
+                    & (FriendRequest.recipient_id == owner.user_id),
+                    (FriendRequest.sender_id == owner.user_id)
+                    & (FriendRequest.recipient_id == viewer.user_id),
+                ),
+            )
+        )
+        is not None
+    )
 
 
 # =========================================================
@@ -305,8 +320,14 @@ def update_my_username(
 ):
     proposed = changes.username.strip()
     if not proposed or len(proposed) < 3:
-        raise HTTPException(status_code=422, detail="Username must contain 3 or more characters")
-    duplicate = db.scalar(select(User).where(User.username == proposed, User.user_id != current_user.user_id))
+        raise HTTPException(
+            status_code=422, detail="Username must contain 3 or more characters"
+        )
+    duplicate = db.scalar(
+        select(User).where(
+            User.username == proposed, User.user_id != current_user.user_id
+        )
+    )
     if duplicate:
         raise HTTPException(status_code=409, detail="Username is already taken")
     current_user.username = proposed
@@ -315,7 +336,9 @@ def update_my_username(
         db.refresh(current_user)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Username is already taken") from None
+        raise HTTPException(
+            status_code=409, detail="Username is already taken"
+        ) from None
     return current_user
 
 
@@ -359,20 +382,32 @@ def search_travelers(
     # Escape SQL LIKE wildcards so search input is interpreted literally.
     escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return db.scalars(
-        select(User).where(User.user_id != current_user.user_id)
+        select(User)
+        .where(User.user_id != current_user.user_id)
         .where(User.username.ilike(f"%{escaped}%", escape="\\"))
-        .order_by(User.username).limit(20)
+        .order_by(User.username)
+        .limit(20)
     ).all()
 
 
 def _friend_request(db: Session, first: int, second: int):
-    return db.scalar(select(FriendRequest).where(or_(
-        (FriendRequest.sender_id == first) & (FriendRequest.recipient_id == second),
-        (FriendRequest.sender_id == second) & (FriendRequest.recipient_id == first),
-    )))
+    return db.scalar(
+        select(FriendRequest).where(
+            or_(
+                (FriendRequest.sender_id == first)
+                & (FriendRequest.recipient_id == second),
+                (FriendRequest.sender_id == second)
+                & (FriendRequest.recipient_id == first),
+            )
+        )
+    )
 
 
-@router.post("/friends/requests/{recipient_id}", response_model=FriendRequestResponse, status_code=201)
+@router.post(
+    "/friends/requests/{recipient_id}",
+    response_model=FriendRequestResponse,
+    status_code=201,
+)
 def send_friend_request(
     recipient_id: int,
     current_user: User = Depends(get_current_user),
@@ -383,15 +418,25 @@ def send_friend_request(
     if db.get(User, recipient_id) is None:
         raise HTTPException(status_code=404, detail="Traveler not found")
     if _friend_request(db, current_user.user_id, recipient_id):
-        raise HTTPException(status_code=409, detail="A friendship or request already exists")
-    item = FriendRequest(sender_id=current_user.user_id, recipient_id=recipient_id, status="pending")
+        raise HTTPException(
+            status_code=409, detail="A friendship or request already exists"
+        )
+    item = FriendRequest(
+        sender_id=current_user.user_id, recipient_id=recipient_id, status="pending"
+    )
     db.add(item)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="A friendship or request already exists") from None
-    return db.scalar(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient)).where(FriendRequest.request_id == item.request_id))
+        raise HTTPException(
+            status_code=409, detail="A friendship or request already exists"
+        ) from None
+    return db.scalar(
+        select(FriendRequest)
+        .options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
+        .where(FriendRequest.request_id == item.request_id)
+    )
 
 
 @router.get("/friends/requests", response_model=list[FriendRequestResponse])
@@ -399,9 +444,17 @@ def list_friend_requests(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return db.scalars(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
-        .where(or_(FriendRequest.sender_id == current_user.user_id, FriendRequest.recipient_id == current_user.user_id))
-        .order_by(FriendRequest.request_id.desc())).all()
+    return db.scalars(
+        select(FriendRequest)
+        .options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
+        .where(
+            or_(
+                FriendRequest.sender_id == current_user.user_id,
+                FriendRequest.recipient_id == current_user.user_id,
+            )
+        )
+        .order_by(FriendRequest.request_id.desc())
+    ).all()
 
 
 @router.patch("/friends/requests/{request_id}", response_model=FriendRequestResponse)
@@ -420,7 +473,11 @@ def resolve_friend_request(
         raise HTTPException(status_code=409, detail="Request is no longer pending")
     item.status = "accepted" if decision == "accept" else "declined"
     db.commit()
-    return db.scalar(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient)).where(FriendRequest.request_id == request_id))
+    return db.scalar(
+        select(FriendRequest)
+        .options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
+        .where(FriendRequest.request_id == request_id)
+    )
 
 
 @router.get("/friends", response_model=list[PublicUserResponse])
@@ -428,10 +485,21 @@ def list_friends(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    accepted = db.scalars(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
+    accepted = db.scalars(
+        select(FriendRequest)
+        .options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
         .where(FriendRequest.status == "accepted")
-        .where(or_(FriendRequest.sender_id == current_user.user_id, FriendRequest.recipient_id == current_user.user_id))).all()
-    return [req.recipient if req.sender_id == current_user.user_id else req.sender for req in accepted]
+        .where(
+            or_(
+                FriendRequest.sender_id == current_user.user_id,
+                FriendRequest.recipient_id == current_user.user_id,
+            )
+        )
+    ).all()
+    return [
+        req.recipient if req.sender_id == current_user.user_id else req.sender
+        for req in accepted
+    ]
 
 
 @router.delete("/friends/{friend_id}", response_model=FriendActionResponse)
