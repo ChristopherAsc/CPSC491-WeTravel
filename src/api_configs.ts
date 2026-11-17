@@ -197,3 +197,64 @@ export async function togglePostLike(postId: number, token: string): Promise<Pos
 
   return (await response.json()) as PostLikeState
 }
+
+export type PostComment = {
+  comment_id: number
+  post_id: number
+  user_id: number
+  username: string
+  content: string
+  created_at: string
+}
+
+function isPostComment(value: unknown): value is PostComment {
+  if (!value || typeof value !== "object") return false
+  const comment = value as Record<string, unknown>
+
+  return typeof comment.comment_id === "number" && typeof comment.post_id === "number" &&
+    typeof comment.user_id === "number" && typeof comment.username === "string" &&
+    typeof comment.content === "string" && typeof comment.created_at === "string"
+}
+
+// Comments are public to read; a token is only needed for private profiles' posts
+export async function getPostComments(postId: number, token?: string | null): Promise<PostComment[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/posts/${postId}/comments`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+  )
+
+  if (!response.ok) {
+    throw await toApiRequestError(response, `Could not load comments (${response.status})`)
+  }
+
+  const body: unknown = await response.json()
+
+  if (!Array.isArray(body) || !body.every(isPostComment)) {
+    throw new Error("Unexpected response format")
+  }
+
+  return body
+}
+
+export async function createPostComment(postId: number, content: string, token: string): Promise<PostComment> {
+  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/comments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ content }),
+  })
+
+  if (!response.ok) {
+    throw await toApiRequestError(response, `Could not post your comment (${response.status})`)
+  }
+
+  const body: unknown = await response.json()
+
+  if (!isPostComment(body)) {
+    throw new Error("Unexpected response format")
+  }
+
+  return body
+}

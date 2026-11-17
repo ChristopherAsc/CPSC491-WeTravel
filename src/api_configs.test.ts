@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ApiRequestError, createPost, getPosts, loginUser, registerUser, togglePostLike } from "@/api_configs"
+import { ApiRequestError, createPost, createPostComment, getPostComments, getPosts, loginUser, registerUser, togglePostLike } from "@/api_configs"
 
 function mockFetch(status: number, json: () => Promise<unknown>) {
   vi.stubGlobal(
@@ -168,6 +168,81 @@ describe("togglePostLike", () => {
     await expect(togglePostLike(7, "token")).rejects.toMatchObject({
       status: 404,
       message: "Post not found",
+    })
+  })
+})
+
+const sampleComment = {
+  comment_id: 1,
+  post_id: 7,
+  user_id: 2,
+  username: "wanderer2",
+  content: "Looks like an amazing trip!",
+  created_at: "2026-11-11T10:00:00Z",
+}
+
+describe("getPostComments", () => {
+  it("loads the comments for a post", async () => {
+    mockFetch(200, async () => [sampleComment])
+
+    const result = await getPostComments(7)
+
+    expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain("/api/posts/7/comments")
+    expect(vi.mocked(fetch).mock.calls[0][1]).toBeUndefined()
+    expect(result).toEqual([sampleComment])
+  })
+
+  it("sends the token when one is provided", async () => {
+    mockFetch(200, async () => [])
+
+    await getPostComments(7, "example-test-token")
+
+    const options = vi.mocked(fetch).mock.calls[0][1]
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer example-test-token")
+  })
+
+  it("throws the backend message when the post cannot be found", async () => {
+    mockFetch(404, async () => ({ detail: "Post not found" }))
+
+    await expect(getPostComments(7)).rejects.toMatchObject({ status: 404, message: "Post not found" })
+  })
+
+  it("rejects a response that is not a list of comments", async () => {
+    mockFetch(200, async () => ({ unexpected: true }))
+
+    await expect(getPostComments(7)).rejects.toThrow("Unexpected response format")
+  })
+})
+
+describe("createPostComment", () => {
+  it("posts the comment text with the token and returns the saved comment", async () => {
+    mockFetch(201, async () => sampleComment)
+
+    const result = await createPostComment(7, "Looks like an amazing trip!", "example-test-token")
+
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain("/api/posts/7/comments")
+    expect(options?.method).toBe("POST")
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer example-test-token")
+    expect(JSON.parse(options?.body as string)).toEqual({ content: "Looks like an amazing trip!" })
+    expect(result).toEqual(sampleComment)
+  })
+
+  it("formats validation errors from the backend", async () => {
+    mockFetch(422, async () => ({ detail: [{ loc: ["body", "content"], msg: "Comment cannot be blank" }] }))
+
+    await expect(createPostComment(7, " ", "token")).rejects.toMatchObject({
+      status: 422,
+      message: "Comment cannot be blank",
+    })
+  })
+
+  it("reports an expired login on 401", async () => {
+    mockFetch(401, async () => ({ detail: "Invalid authentication token" }))
+
+    await expect(createPostComment(7, "Hi", "stale")).rejects.toMatchObject({
+      status: 401,
+      message: "Your login has expired. Please log in again.",
     })
   })
 })

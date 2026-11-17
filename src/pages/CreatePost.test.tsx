@@ -212,6 +212,7 @@ describe("Create Post to Feed", () => {
       created_at: "2026-11-02T18:00:00Z",
       like_count: 0,
       liked_by_me: false,
+      comment_count: 0,
     }
     vi.mocked(createPost).mockResolvedValue(created)
     vi.mocked(getPosts).mockResolvedValue([created])

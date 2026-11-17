@@ -126,6 +126,7 @@ describe("Smoke: Feed", () => {
         created_at: "2026-10-10T10:00:00Z",
         like_count: 0,
         liked_by_me: false,
+        comment_count: 0,
       },
     ])
 

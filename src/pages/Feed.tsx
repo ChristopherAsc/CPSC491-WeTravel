@@ -12,6 +12,7 @@ function isFeedPost(value: unknown): value is FeedPost {
     typeof post.username === "string" &&
     typeof post.caption === "string" && typeof post.created_at === "string" &&
     typeof post.like_count === "number" && typeof post.liked_by_me === "boolean" &&
+    typeof post.comment_count === "number" &&
     (post.media_url === null || typeof post.media_url === "string")
 }
 

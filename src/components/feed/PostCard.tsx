@@ -5,6 +5,8 @@ import { ImageOff, MapPin, CalendarDays, UserRound, Heart, MessageCircle, Bookma
 import { ApiRequestError, togglePostLike } from "@/api_configs"
 import { handleUnauthorized } from "@/auth/authFetch"
 import { useAuth } from "@/auth/useAuth"
+import CommentSection from "@/components/feed/CommentSection"
+import { readableDate } from "@/lib/formatDate"
 
 export type FeedPost = {
   post_id: number
@@ -16,13 +18,7 @@ export type FeedPost = {
   created_at: string
   like_count: number
   liked_by_me: boolean
-}
-
-function readableDate(value: string): string {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? "Date unavailable"
-    : new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date)
+  comment_count: number
 }
 
 export default function PostCard({ post }: { post: FeedPost }) {
@@ -32,6 +28,8 @@ export default function PostCard({ post }: { post: FeedPost }) {
   const [likeCount, setLikeCount] = useState(post.like_count)
   const [likePending, setLikePending] = useState(false)
   const [likeError, setLikeError] = useState<string | null>(null)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [commentCount, setCommentCount] = useState(post.comment_count)
   const showImage = Boolean(post.media_url) && !imageFailed
 
   async function handleLike() {
@@ -102,7 +100,17 @@ export default function PostCard({ post }: { post: FeedPost }) {
               <Heart size={20} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
               <span aria-label={`${likeCount} ${likeCount === 1 ? "like" : "likes"}`}>{likeCount}</span>
             </button>
-            <span title="Comments coming soon" aria-label="Comments coming soon"><MessageCircle size={20} aria-hidden="true" /></span>
+            <button
+              type="button"
+              onClick={() => setCommentsOpen((open) => !open)}
+              aria-expanded={commentsOpen}
+              aria-controls={`comments-${post.post_id}`}
+              aria-label={commentsOpen ? "Hide comments" : "View comments"}
+              className={`inline-flex items-center gap-1.5 text-sm font-medium transition ${commentsOpen ? "text-[#0D3B66]" : "text-gray-500 hover:text-[#0D3B66]"}`}
+            >
+              <MessageCircle size={20} fill={commentsOpen ? "currentColor" : "none"} aria-hidden="true" />
+              <span aria-label={`${commentCount} ${commentCount === 1 ? "comment" : "comments"}`}>{commentCount}</span>
+            </button>
             <span title="Saving posts coming soon" aria-label="Saving posts coming soon"><Bookmark size={20} aria-hidden="true" /></span>
           </div>
           <span className="flex items-center gap-1 text-xs font-medium text-[#0D3B66]"><MapPin size={14} aria-hidden="true" />{post.location?.name || "Unspecified destination"}</span>
@@ -112,6 +120,7 @@ export default function PostCard({ post }: { post: FeedPost }) {
             {likeError === "login" ? <><Link to="/login" className="font-semibold underline">Log in</Link> to like posts.</> : likeError}
           </p>
         )}
+        {commentsOpen && <CommentSection postId={post.post_id} onCommentAdded={() => setCommentCount((count) => count + 1)} />}
       </div>
     </article>
   )

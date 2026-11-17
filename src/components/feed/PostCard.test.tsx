@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router-dom"
 
 import PostCard, { type FeedPost } from "./PostCard"
-import { ApiRequestError, togglePostLike } from "@/api_configs"
+import { ApiRequestError, getPostComments, togglePostLike } from "@/api_configs"
 import { onUnauthorized } from "@/auth/authFetch"
 
 const { useAuthMock } = vi.hoisted(() => ({ useAuthMock: vi.fn() }))
@@ -13,6 +13,7 @@ vi.mock("@/auth/useAuth", () => ({ useAuth: useAuthMock }))
 vi.mock("@/api_configs", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api_configs")>()),
   togglePostLike: vi.fn(),
+  getPostComments: vi.fn(),
 }))
 
 const post: FeedPost = {
@@ -25,6 +26,7 @@ const post: FeedPost = {
   created_at: "2026-11-10T10:00:00Z",
   like_count: 2,
   liked_by_me: false,
+  comment_count: 1,
 }
 
 const renderCard = (overrides: Partial<FeedPost> = {}) =>
@@ -136,5 +138,34 @@ describe("PostCard likes", () => {
     expect(togglePostLike).toHaveBeenCalledTimes(1)
     finish({ post_id: 5, liked: true, like_count: 3 })
     await screen.findByRole("button", { name: "Unlike this post" })
+  })
+})
+
+describe("PostCard comments", () => {
+  beforeEach(() => {
+    vi.mocked(getPostComments).mockResolvedValue([])
+  })
+
+  it("shows the comment count and keeps comments closed at first", () => {
+    renderCard({ comment_count: 3 })
+
+    const button = screen.getByRole("button", { name: "View comments" })
+    expect(button).toHaveAttribute("aria-expanded", "false")
+    expect(button).toHaveTextContent("3")
+    expect(getPostComments).not.toHaveBeenCalled()
+  })
+
+  it("opens the comments section for this post and closes it again", async () => {
+    renderCard()
+
+    fireEvent.click(screen.getByRole("button", { name: "View comments" }))
+
+    expect(await screen.findByLabelText("Add a comment")).toBeInTheDocument()
+    expect(getPostComments).toHaveBeenCalledWith(5, "example-test-token")
+    expect(screen.getByRole("button", { name: "Hide comments" })).toHaveAttribute("aria-expanded", "true")
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide comments" }))
+
+    expect(screen.queryByLabelText("Add a comment")).not.toBeInTheDocument()
   })
 })
