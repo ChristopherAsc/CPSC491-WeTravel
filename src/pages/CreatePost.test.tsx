@@ -205,6 +205,7 @@ describe("Create Post to Feed", () => {
     const created = {
       post_id: 42,
       user_id: 7,
+      username: "yosemite_fan",
       caption: "Wonderful views in Yosemite",
       media_url: null,
       location: { name: yosemite.fullName, latitude: yosemite.latitude, longitude: yosemite.longitude },

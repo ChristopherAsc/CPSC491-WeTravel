@@ -19,11 +19,11 @@ afterEach(() => {
 
 describe("Feed", () => {
   it("shows posts and their metadata from the API", async () => {
-    mockedGetPosts.mockResolvedValue([{ post_id: 1, user_id: 9, caption: "A memorable trip", media_url: "https://example.com/photo.jpg", location: { name: "Yosemite", latitude: 37.8, longitude: -119.5 }, created_at: "2026-10-10T10:00:00Z" }])
+    mockedGetPosts.mockResolvedValue([{ post_id: 1, user_id: 9, username: "wanderer9", caption: "A memorable trip", media_url: "https://example.com/photo.jpg", location: { name: "Yosemite", latitude: 37.8, longitude: -119.5 }, created_at: "2026-10-10T10:00:00Z" }])
     renderFeed()
     expect(screen.getByText("Loading travel posts...")).toBeInTheDocument()
     expect(await screen.findByText("A memorable trip")).toBeInTheDocument()
-    expect(screen.getByText("Traveler #9")).toBeInTheDocument()
+    expect(screen.getByText("wanderer9")).toBeInTheDocument()
     expect(screen.getAllByText("Yosemite")).toHaveLength(2)
     expect(screen.getByAltText("Travel photo for Yosemite")).toBeInTheDocument()
   })

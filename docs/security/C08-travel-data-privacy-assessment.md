@@ -85,6 +85,7 @@ Login-only routes (`/auth/me`, `/users/me`, `/users/me/posts`, `/itineraries`, `
 | User | `hashed_password` | **Prohibited (secret)** | Never returned by any endpoint |
 | Post | `post_id`, `caption`, `media_url`, `created_at` | **Public** | Content the author chose to publish; `created_at` is the posting time, not a visit time |
 | Post | `user_id` | **Public, justified identifier** | Author link (see `User.user_id`) |
+| Post | `username` | **Public** | Author display name on feed cards; same value already public through `/users/{user_id}` (see `User.username`) |
 | Post | `location.name` | **Public** | Shown on every feed card |
 | Post / Location / Safety report | `latitude`, `longitude` | **Public at reduced precision (3 decimals, about 110 m)** | Map pins need an approximate position; no public feature needs building-level precision. Enforced by the `PublicCoordinate` type in `pydantic_models.py`. |
 | Location | `location_id` | **Public, justified identifier** | Key for `/locations/{location_id}/posts` (map to feed) |

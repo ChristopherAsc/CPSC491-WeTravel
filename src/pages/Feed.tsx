@@ -8,6 +8,7 @@ function isFeedPost(value: unknown): value is FeedPost {
   if (!value || typeof value !== "object") return false
   const post = value as Record<string, unknown>
   return typeof post.post_id === "number" && typeof post.user_id === "number" &&
+    typeof post.username === "string" &&
     typeof post.caption === "string" && typeof post.created_at === "string" &&
     (post.media_url === null || typeof post.media_url === "string")
 }
