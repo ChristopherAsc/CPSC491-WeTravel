@@ -73,6 +73,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return password_hash.verify(plain_password, hashed_password)
 
 
+# Used when the username does not exist, so both login failures take the same time.
+DUMMY_PASSWORD_HASH = hash_password("timing-equalizer-not-a-real-password")
+
+
 def create_access_token(user_id: int, username: str) -> str:
     expiration = datetime.now(timezone.utc) + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
@@ -246,10 +250,11 @@ def login(
 
     user = db.scalar(statement)
 
-    if user is None or not verify_password(
-        login_credentials.password,
-        user.hashed_password,
-    ):
+    # Always run the slow hash check, even for unknown usernames.
+    stored_hash = user.hashed_password if user is not None else DUMMY_PASSWORD_HASH
+    password_ok = verify_password(login_credentials.password, stored_hash)
+
+    if user is None or not password_ok:
         record_failed_login_attempt(login_credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
