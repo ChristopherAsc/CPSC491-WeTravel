@@ -165,6 +165,18 @@ To configure the database:
 
 Database initialization and migration procedures should follow the backend configuration.
 
+### Demo Data
+
+To fill a development database with sample travelers, location-tagged posts, likes, and comments (for example before a demonstration), run the seed script from the project root after the tables exist:
+
+```bash
+uv run --env-file .env.local python backend/seed_db.py
+```
+
+The script also creates a `demo_traveler` account you can sign in with. Set `DEMO_USER_PASSWORD` in `.env.local` to choose its password; otherwise a random password is generated and printed once. No password is stored in the repository.
+
+The script is safe to run more than once. It only adds what is missing and never changes an existing account's password. It does not create a San Diego post, so that post can be created live.
+
 ---
 
 ## Running Automated Tests
