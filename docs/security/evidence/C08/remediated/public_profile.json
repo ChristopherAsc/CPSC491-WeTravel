@@ -1,0 +1,9 @@
+{
+  "request": "GET /api/users/{user_id}",
+  "authenticated": false,
+  "status": 200,
+  "body": {
+    "user_id": 1,
+    "username": "c08_traveler"
+  }
+}

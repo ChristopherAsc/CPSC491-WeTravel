@@ -292,3 +292,82 @@ def test_like_count_is_isolated_per_post(
 
     assert first_post_count == 1
     assert second_post_count == 1
+
+
+# =========================================================
+# 5. Post Like Count Response Tests
+# =========================================================
+# Verifies that normal Post API responses expose the current
+# like count and that the count reflects Like/Unlike changes.
+# =========================================================
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_post_response_includes_like_count(
+    client,
+    like_post,
+):
+    """Verify a post with no likes reports a like count of zero."""
+    response = client.get(f"/api/posts/{like_post.post_id}")
+
+    assert response.status_code == 200
+    assert response.json()["like_count"] == 0
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_post_response_like_count_updates_after_toggle(
+    client,
+    like_post,
+    like_headers,
+):
+    """Verify the normal post response reflects Like/Unlike changes."""
+    post_url = f"/api/posts/{like_post.post_id}"
+
+    response = client.get(post_url)
+
+    assert response.status_code == 200
+    assert response.json()["like_count"] == 0
+
+    client.post(
+        f"/api/posts/{like_post.post_id}/likes",
+        headers=like_headers[0],
+    )
+
+    response = client.get(post_url)
+
+    assert response.status_code == 200
+    assert response.json()["like_count"] == 1
+
+    client.post(
+        f"/api/posts/{like_post.post_id}/likes",
+        headers=like_headers[0],
+    )
+
+    response = client.get(post_url)
+
+    assert response.status_code == 200
+    assert response.json()["like_count"] == 0
+
+
+@pytest.mark.requirement("SOCIAL-LIKES")
+def test_post_list_includes_like_count(
+    client,
+    like_post,
+    like_headers,
+):
+    """Verify the post list response includes the current Like count."""
+    client.post(
+        f"/api/posts/{like_post.post_id}/likes",
+        headers=like_headers[0],
+    )
+
+    response = client.get("/api/posts")
+
+    assert response.status_code == 200
+
+    matching_posts = [
+        post for post in response.json() if post["post_id"] == like_post.post_id
+    ]
+
+    assert len(matching_posts) == 1
+    assert matching_posts[0]["like_count"] == 1

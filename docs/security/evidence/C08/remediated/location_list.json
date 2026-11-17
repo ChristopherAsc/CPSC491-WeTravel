@@ -1,0 +1,19 @@
+{
+  "request": "GET /api/locations",
+  "authenticated": false,
+  "status": 200,
+  "body": [
+    {
+      "location_id": 1,
+      "name": "C08 synthetic viewpoint",
+      "latitude": 34.052,
+      "longitude": -118.244
+    },
+    {
+      "location_id": 2,
+      "name": "C08 synthetic crossing",
+      "latitude": 33.87,
+      "longitude": -117.924
+    }
+  ]
+}

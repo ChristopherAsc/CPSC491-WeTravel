@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
-import { AlertCircle, Compass, LoaderCircle, Plus, RefreshCw } from "lucide-react"
+import { Link, useLocation } from "react-router-dom"
+import { AlertCircle, CircleCheck, Compass, LoaderCircle, Plus, RefreshCw } from "lucide-react"
 import { getPosts } from "@/api_configs"
 import PostCard, { type FeedPost } from "@/components/feed/PostCard"
 
@@ -13,6 +13,9 @@ function isFeedPost(value: unknown): value is FeedPost {
 }
 
 export default function Feed() {
+  const navigationState: unknown = useLocation().state
+  const justPublished = Boolean(navigationState && typeof navigationState === "object" &&
+    "publishedPostId" in navigationState && typeof navigationState.publishedPostId === "number")
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -61,6 +64,10 @@ export default function Feed() {
         </div>
         <Link to="/create-post" className="inline-flex items-center gap-2 rounded-lg bg-[#0D3B66] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#15558b]"><Plus size={17} aria-hidden="true" /> Create post</Link>
       </div>
+
+      {justPublished && (
+        <div role="status" className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900"><CircleCheck size={18} aria-hidden="true" /> Your post was published.</div>
+      )}
 
       {loading ? (
         <div role="status" className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-6 py-20 text-gray-600"><LoaderCircle className="animate-spin text-[#0D3B66]" size={30} aria-hidden="true" /><p>Loading travel posts...</p></div>

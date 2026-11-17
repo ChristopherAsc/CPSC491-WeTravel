@@ -3,7 +3,19 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from database import Base
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, String, Table, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    String,
+    Table,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 itinerary_destinations = Table(
@@ -38,6 +50,9 @@ class User(Base):
         nullable=False,
         index=True,
     )
+    is_private: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     hashed_password: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
@@ -53,6 +68,16 @@ class User(Base):
     )
     safety_reports: Mapped[list["SafetyReport"]] = relationship(
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    outgoing_friend_requests: Mapped[list["FriendRequest"]] = relationship(
+        foreign_keys="FriendRequest.sender_id",
+        back_populates="sender",
+        cascade="all, delete-orphan",
+    )
+    incoming_friend_requests: Mapped[list["FriendRequest"]] = relationship(
+        foreign_keys="FriendRequest.recipient_id",
+        back_populates="recipient",
         cascade="all, delete-orphan",
     )
     post_likes: Mapped[list["PostLike"]] = relationship(
@@ -107,6 +132,10 @@ class Post(Base):
         back_populates="post",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def like_count(self) -> int:
+        return len(self.post_likes)
 
 
 class Itinerary(Base):
@@ -170,3 +199,36 @@ class PostLike(Base):
 
     user: Mapped["User"] = relationship(back_populates="post_likes")
     post: Mapped["Post"] = relationship(back_populates="post_likes")
+
+
+class FriendRequest(Base):
+    __tablename__ = "friend_requests"
+    __table_args__ = (
+        UniqueConstraint(
+            "sender_id", "recipient_id", name="uq_friend_request_direction"
+        ),
+        CheckConstraint("sender_id <> recipient_id", name="ck_friend_request_no_self"),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'declined')",
+            name="ck_friend_request_status",
+        ),
+    )
+
+    request_id: Mapped[int] = mapped_column(primary_key=True)
+    sender_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    recipient_id: Mapped[int] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    sender: Mapped["User"] = relationship(
+        foreign_keys=[sender_id], back_populates="outgoing_friend_requests"
+    )
+    recipient: Mapped["User"] = relationship(
+        foreign_keys=[recipient_id], back_populates="incoming_friend_requests"
+    )

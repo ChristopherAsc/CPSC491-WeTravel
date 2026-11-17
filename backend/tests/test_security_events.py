@@ -40,8 +40,7 @@ T0 = datetime(2026, 11, 1, 18, 0, 0, tzinfo=timezone.utc)
 CANARY_USERNAME = "canary-user-7f3a"
 CANARY_PASSWORD = "CanaryP@ssw0rd!9x"
 CANARY_JWT = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-    ".eyJzdWIiOiJjYW5hcnkifQ.c2lnbmF0dXJlLWNhbmFyeQ"
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjYW5hcnkifQ.c2lnbmF0dXJlLWNhbmFyeQ"
 )
 
 
