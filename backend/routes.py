@@ -40,12 +40,10 @@ from pydantic_models import (
     UserRegistration,
     UserResponse,
 )
+from security_events import record_failed_login_attempt
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
-from security_events import record_failed_login_attempt
-from sqlalchemy import func, select, text
-from sqlalchemy.orm import Session
 
 # ---------------------------------------------------------
 # Router Setup
