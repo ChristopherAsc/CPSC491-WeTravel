@@ -114,6 +114,7 @@ export type PostCreatePayload = {
 export type CreatedPost = {
   post_id: number
   user_id: number
+  username: string
   caption: string
   media_url: string | null
   location: PostCreatePayload["location"]

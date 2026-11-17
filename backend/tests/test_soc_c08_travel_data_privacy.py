@@ -41,6 +41,7 @@ from routes import get_current_user, hash_password, router
 POST_FIELDS = {
     "post_id",
     "user_id",
+    "username",
     "caption",
     "media_url",
     "created_at",

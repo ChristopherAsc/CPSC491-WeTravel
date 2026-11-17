@@ -119,6 +119,7 @@ describe("Smoke: Feed", () => {
       {
         post_id: 1,
         user_id: 9,
+        username: "smoketester",
         caption: "Smoke test post",
         media_url: "https://example.com/photo.jpg",
         location: { name: "Yosemite", latitude: 37.8, longitude: -119.5 },

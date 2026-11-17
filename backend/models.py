@@ -137,6 +137,10 @@ class Post(Base):
     def like_count(self) -> int:
         return len(self.post_likes)
 
+    @property
+    def username(self) -> str:
+        return self.user.username
+
 
 class Itinerary(Base):
     __tablename__ = "itineraries"

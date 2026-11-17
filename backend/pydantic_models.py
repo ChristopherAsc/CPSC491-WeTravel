@@ -72,6 +72,7 @@ class PostResponse(BaseModel):
 
     post_id: int
     user_id: int
+    username: str
     caption: str
     media_url: Optional[str] = None
     location: PostLocationResponse

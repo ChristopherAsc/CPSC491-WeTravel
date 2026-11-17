@@ -4,6 +4,7 @@ import { ImageOff, MapPin, CalendarDays, UserRound, Heart, MessageCircle, Bookma
 export type FeedPost = {
   post_id: number
   user_id: number
+  username: string
   caption: string
   media_url: string | null
   location: { name: string; latitude: number; longitude: number } | null
@@ -26,7 +27,7 @@ export default function PostCard({ post }: { post: FeedPost }) {
       <header className="flex items-center gap-3 px-5 py-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#0D3B66]" aria-hidden="true"><UserRound size={22} /></div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-gray-900">Traveler #{post.user_id}</p>
+          <p className="truncate text-sm font-semibold text-gray-900">{post.username}</p>
           <p className="flex flex-wrap items-center gap-1 text-xs text-gray-500"><MapPin size={13} aria-hidden="true" /> {post.location?.name || "Location unavailable"}</p>
         </div>
         <p className="flex shrink-0 items-center gap-1 text-xs text-gray-500"><CalendarDays size={13} aria-hidden="true" /><time dateTime={post.created_at}>{readableDate(post.created_at)}</time></p>
