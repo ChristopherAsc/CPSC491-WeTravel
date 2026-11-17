@@ -151,6 +151,15 @@ class UserResponse(BaseModel):
     username: str
     email: str
     posts: list[PostResponse] = []
+    is_private: bool = False
+
+
+class ProfilePrivacyUpdate(BaseModel):
+    is_private: bool
+
+
+class ProfilePrivacyResponse(BaseModel):
+    is_private: bool
 
 
 class PublicUserResponse(BaseModel):
@@ -176,3 +185,27 @@ class PostLikeResponse(BaseModel):
     post_id: int
     liked: bool
     like_count: int
+
+
+class AccountUsernameUpdate(BaseModel):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_]+$")
+
+
+class AccountPasswordUpdate(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class AccountDeleteConfirmation(BaseModel):
+    password: str
+
+
+class FriendRequestResponse(BaseModel):
+    request_id: int
+    sender: PublicUserResponse
+    recipient: PublicUserResponse
+    status: str
+
+
+class FriendActionResponse(BaseModel):
+    message: str

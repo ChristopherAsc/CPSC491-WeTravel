@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { AlertCircle, CalendarDays, Compass, FileText, LogIn, Mail,MapPin, Plus, RefreshCw, ShieldCheck, UserRound,} from "lucide-react"
+import { AlertCircle, CalendarDays, Compass, FileText, LogIn, Mail, MapPin, Plus, RefreshCw, ShieldCheck, UserRound, UsersRound, ArrowRight,} from "lucide-react"
 import { authFetch } from "@/auth/authFetch"
 
 type ProfileUser = {
@@ -150,9 +150,15 @@ export default function Profile() {
                 <p className="mt-1 text-sm text-gray-600">Itinerary {draftCount === 1 ? "draft" : "drafts"} saved in this browser</p>
                 <Link to="/itinerary" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#0D3B66] hover:underline">View itineraries <span aria-hidden="true">→</span></Link>
               </section>
+              <section aria-label="Friends and requests" className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0D3B66]"><UsersRound size={23} aria-hidden="true" /></div>
+                <h2 className="text-lg font-semibold text-[#0D3B66]">Friends & Requests</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">See your travel connections, respond to invitations, and manage your friends list.</p>
+                <Link to="/friends" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0D3B66] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#155383]">Manage connections <ArrowRight size={16} aria-hidden="true" /></Link>
+              </section>
               <section role="note" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
                 <h2 className="font-semibold">Profile preview</h2>
-                <p className="mt-2">Account information comes from the current-user API. Profile editing, avatars, and account-specific post history are planned integrations. Itinerary drafts are stored only in this browser.</p>
+                <p className="mt-2">Account information comes from the current-user API. Avatars and account-specific post history are planned integrations. Itinerary drafts are stored only in this browser.</p>
               </section>
             </div>
           </div>
