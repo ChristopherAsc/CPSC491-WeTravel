@@ -6,9 +6,17 @@ import jwt
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from models import Itinerary, Location, Post, PostLike, SafetyReport, User
+from models import FriendRequest, Itinerary, Location, Post, PostLike, SafetyReport, User
 from pwdlib import PasswordHash
+from sqlalchemy.exc import IntegrityError
 from pydantic_models import (
+    AccountDeleteConfirmation,
+    AccountPasswordUpdate,
+    AccountUsernameUpdate,
+    ProfilePrivacyUpdate,
+    ProfilePrivacyResponse,
+    FriendRequestResponse,
+    FriendActionResponse,
     ItineraryCreate,
     ItineraryResponse,
     ItineraryUpdate,
@@ -25,8 +33,8 @@ from pydantic_models import (
     UserRegistration,
     UserResponse,
 )
-from sqlalchemy import func, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, select, text
+from sqlalchemy.orm import Session, joinedload
 
 # ---------------------------------------------------------
 # Router Setup
@@ -103,7 +111,7 @@ def get_current_user(
 
         user_id = int(user_id)
 
-    except jwt.InvalidTokenError, ValueError, TypeError:
+    except (jwt.InvalidTokenError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -119,6 +127,36 @@ def get_current_user(
         )
 
     return user
+
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Use an authenticated session when available; public visitors remain anonymous."""
+    if credentials is None:
+        return None
+    try:
+        return get_current_user(credentials=credentials, db=db)
+    except HTTPException:
+        return None
+
+
+def can_view_posts(owner: User, viewer: User | None, db: Session) -> bool:
+    """Public profiles are viewable by all; private posts by their owner or accepted friends."""
+    if not owner.is_private:
+        return True
+    if viewer is None:
+        return False
+    if viewer.user_id == owner.user_id:
+        return True
+    return db.scalar(select(FriendRequest.request_id).where(
+        FriendRequest.status == "accepted",
+        or_(
+            (FriendRequest.sender_id == viewer.user_id) & (FriendRequest.recipient_id == owner.user_id),
+            (FriendRequest.sender_id == owner.user_id) & (FriendRequest.recipient_id == viewer.user_id),
+        ),
+    )) is not None
 
 
 # =========================================================
@@ -237,6 +275,175 @@ def get_my_profile(
     return current_user
 
 
+# =========================================================
+# Feature #4: Account settings, discovery, and friendships
+# =========================================================
+
+
+@router.patch("/users/me/privacy", response_model=ProfilePrivacyResponse)
+def update_profile_privacy(
+    changes: ProfilePrivacyUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Only an authenticated account owner may change their privacy setting."""
+    current_user.is_private = changes.is_private
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.patch("/users/me", response_model=PublicUserResponse)
+def update_my_username(
+    changes: AccountUsernameUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    proposed = changes.username.strip()
+    if not proposed or len(proposed) < 3:
+        raise HTTPException(status_code=422, detail="Username must contain 3 or more characters")
+    duplicate = db.scalar(select(User).where(User.username == proposed, User.user_id != current_user.user_id))
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Username is already taken")
+    current_user.username = proposed
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Username is already taken") from None
+    return current_user
+
+
+@router.put("/users/me/password", response_model=FriendActionResponse)
+def change_my_password(
+    changes: AccountPasswordUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(changes.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=403, detail="Current password is incorrect")
+    if changes.current_password == changes.new_password:
+        raise HTTPException(status_code=422, detail="New password must be different")
+    current_user.hashed_password = hash_password(changes.new_password)
+    db.commit()
+    return {"message": "Password updated"}
+
+
+@router.delete("/users/me", response_model=FriendActionResponse)
+def delete_my_account(
+    confirmation: AccountDeleteConfirmation,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(confirmation.password, current_user.hashed_password):
+        raise HTTPException(status_code=403, detail="Password confirmation failed")
+    db.delete(current_user)
+    db.commit()
+    return {"message": "Account deleted"}
+
+
+@router.get("/users/search", response_model=list[PublicUserResponse])
+def search_travelers(
+    username: str = Query(min_length=1, max_length=50),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    term = username.strip()
+    if not term:
+        return []
+    # Escape SQL LIKE wildcards so search input is interpreted literally.
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return db.scalars(
+        select(User).where(User.user_id != current_user.user_id)
+        .where(User.username.ilike(f"%{escaped}%", escape="\\"))
+        .order_by(User.username).limit(20)
+    ).all()
+
+
+def _friend_request(db: Session, first: int, second: int):
+    return db.scalar(select(FriendRequest).where(or_(
+        (FriendRequest.sender_id == first) & (FriendRequest.recipient_id == second),
+        (FriendRequest.sender_id == second) & (FriendRequest.recipient_id == first),
+    )))
+
+
+@router.post("/friends/requests/{recipient_id}", response_model=FriendRequestResponse, status_code=201)
+def send_friend_request(
+    recipient_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if recipient_id == current_user.user_id:
+        raise HTTPException(status_code=400, detail="Cannot friend yourself")
+    if db.get(User, recipient_id) is None:
+        raise HTTPException(status_code=404, detail="Traveler not found")
+    if _friend_request(db, current_user.user_id, recipient_id):
+        raise HTTPException(status_code=409, detail="A friendship or request already exists")
+    item = FriendRequest(sender_id=current_user.user_id, recipient_id=recipient_id, status="pending")
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A friendship or request already exists") from None
+    return db.scalar(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient)).where(FriendRequest.request_id == item.request_id))
+
+
+@router.get("/friends/requests", response_model=list[FriendRequestResponse])
+def list_friend_requests(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return db.scalars(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
+        .where(or_(FriendRequest.sender_id == current_user.user_id, FriendRequest.recipient_id == current_user.user_id))
+        .order_by(FriendRequest.request_id.desc())).all()
+
+
+@router.patch("/friends/requests/{request_id}", response_model=FriendRequestResponse)
+def resolve_friend_request(
+    request_id: int,
+    decision: str = Query(pattern="^(accept|decline)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(FriendRequest, request_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Friend request not found")
+    if item.recipient_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Only the recipient can respond")
+    if item.status != "pending":
+        raise HTTPException(status_code=409, detail="Request is no longer pending")
+    item.status = "accepted" if decision == "accept" else "declined"
+    db.commit()
+    return db.scalar(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient)).where(FriendRequest.request_id == request_id))
+
+
+@router.get("/friends", response_model=list[PublicUserResponse])
+def list_friends(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    accepted = db.scalars(select(FriendRequest).options(joinedload(FriendRequest.sender), joinedload(FriendRequest.recipient))
+        .where(FriendRequest.status == "accepted")
+        .where(or_(FriendRequest.sender_id == current_user.user_id, FriendRequest.recipient_id == current_user.user_id))).all()
+    return [req.recipient if req.sender_id == current_user.user_id else req.sender for req in accepted]
+
+
+@router.delete("/friends/{friend_id}", response_model=FriendActionResponse)
+def remove_friend(
+    friend_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    item = _friend_request(db, current_user.user_id, friend_id)
+    if item is None or item.status != "accepted":
+        raise HTTPException(status_code=404, detail="Friendship not found")
+    db.delete(item)
+    db.commit()
+    return {"message": "Friend removed"}
+
+
 @router.get(
     "/users/{user_id}",
     response_model=PublicUserResponse,
@@ -277,6 +484,7 @@ def get_my_posts(
 )
 def get_user_posts(
     user_id: int,
+    viewer: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     user = db.get(User, user_id)
@@ -287,6 +495,9 @@ def get_user_posts(
             detail="User not found",
         )
 
+    if not can_view_posts(user, viewer, db):
+        raise HTTPException(status_code=403, detail="This profile is private")
+
     return user.posts
 
 
@@ -296,6 +507,7 @@ def get_user_posts(
 )
 def get_post(
     post_id: int,
+    viewer: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """Retrieve an individual travel post."""
@@ -307,6 +519,9 @@ def get_post(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
+
+    if not can_view_posts(post.user, viewer, db):
+        raise HTTPException(status_code=404, detail="Post not found")
 
     return post
 
@@ -322,6 +537,8 @@ def get_posts(
 
     return db.scalars(
         select(Post)
+        .join(Post.user)
+        .where(User.is_private.is_(False))
         .order_by(
             Post.created_at.desc(),
             Post.post_id.desc(),
@@ -431,6 +648,9 @@ def toggle_post_like(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
+
+    if not can_view_posts(post.user, current_user, db):
+        raise HTTPException(status_code=404, detail="Post not found")
 
     # Check whether the authenticated user has already liked the post.
     existing_like = db.scalar(
@@ -624,7 +844,7 @@ def get_posts_by_location(
             detail="Location not found",
         )
 
-    return location.posts
+    return [post for post in location.posts if not post.user.is_private]
 
 
 # =========================================================
